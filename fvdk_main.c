@@ -24,6 +24,7 @@
 #include "fvdkernel.h"
 #include "fvdk_internal.h"
 #include <linux/platform_device.h>
+#include <linux/mm.h>
 
 // Definitions
 
@@ -35,17 +36,37 @@ static DWORD DoIOControl(PFVD_DEV_INFO pDev,
                          DWORD  Ioctl,
                          PUCHAR pBuf,
                          PUCHAR pUserBuf);
+static int FVD_mmap (struct file * filep,
+                     struct vm_area_struct * vma);
 
 // Local variables
 static PFVD_DEV_INFO gpDev;
+
+static char * gpBlob;
+static int blobsize;
 
 static struct file_operations fvd_fops =
 {
         .owner = THIS_MODULE,
         .unlocked_ioctl = FVD_IOControl,
+       	.mmap = FVD_mmap,
 };
 
 // Code
+
+static int FVD_mmap (struct file * filep, struct vm_area_struct * vma)
+{
+    int size;
+
+    size = vma->vm_end - vma->vm_start;
+
+    if ( size > blobsize)
+        return -EINVAL;
+    if ( remap_pfn_range (vma, vma->vm_start, __pa(gpBlob) >> PAGE_SHIFT, size,
+                  vma->vm_page_prot ) )
+        return -EAGAIN ;
+    return 0;
+}
 
 static int __init FVD_Init(void)
 {
@@ -153,6 +174,11 @@ static void __devexit FVD_Deinit(void)
         {
         	kfree(gpDev);
 			gpDev = NULL;
+	        if (gpBlob)
+	        {
+	            kfree(gpBlob);
+	            gpBlob = NULL;
+	        }
         }
     }
 }
@@ -256,8 +282,29 @@ DWORD DoIOControl(
         }
         break;
 
+    case IOCTL_FVDK_CREATE_BLOB:
+        if (gpBlob)
+            dwErr = ERROR_SUCCESS;
+        else
+        {
+            blobsize = (*(ULONG*)pBuf + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+            gpBlob = kmalloc (blobsize, GFP_KERNEL) ;
+            if (gpBlob == NULL)
+            {
+                pr_err ( "FVDK : Error allocating memory\n") ;
+                blobsize = 0;
+                dwErr = -ENOMEM;
+            }
+            else
+            {
+                memset(gpBlob, 0, blobsize);
+                dwErr = ERROR_SUCCESS;
+            }
+        }
+        break;
+
     default:
-        pr_err("Ioctl %lX not supported\n", Ioctl);
+        pr_err("FVDK: Ioctl %lX not supported\n", Ioctl);
         dwErr = ERROR_NOT_SUPPORTED;
         break;
     }
