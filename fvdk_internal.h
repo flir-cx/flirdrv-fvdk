@@ -37,9 +37,6 @@ typedef struct __FVD_DEV_INFO
     // FPGA header
     char                        fpga[400];                      // FPGA Header data buffer
 
-    // Driver variables
-    INT                         giDevices;
-
     // CPU specific function pointers
     BOOL (*pSetupGpioAccess)(void);
     void (*pCleanupGpio)(struct __FVD_DEV_INFO * pDev);
@@ -51,6 +48,11 @@ typedef struct __FVD_DEV_INFO
     void (*pBSPFvdPowerDown)(struct __FVD_DEV_INFO * pDev);
     void (*pBSPFvdPowerDownFPA)(struct __FVD_DEV_INFO * pDev);
     void (*pBSPFvdPowerUpFPA)(struct __FVD_DEV_INFO * pDev);
+
+    // Locks
+    struct semaphore            muDevice;
+    struct semaphore            muLepton;
+    struct semaphore            muExecute;
 
     // CPU specific parameters
     int							iSpiBus;
@@ -68,5 +70,7 @@ void freeFpgaData(void);
 
 #define 	FVD_BSP_PIBB        0
 #define 	FVD_BSP_ASBB	    1  // Astra + Nettan
+
+enum locks { LNONE, LDRV, LEXEC, LLEPT };
 
 #endif /* __FVD_INTERNAL_H__ */

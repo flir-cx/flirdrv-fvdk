@@ -148,7 +148,9 @@ static int __init FVD_Init(void)
             break;
     }
 
-    gpDev->giDevices++;
+    sema_init(&gpDev->muDevice, 1);
+    sema_init(&gpDev->muLepton, 1);
+    sema_init(&gpDev->muExecute, 1);
 
 	pr_err("FVD_Init completed (%ld)\n", timeout);
 
@@ -163,22 +165,18 @@ static void __devexit FVD_Deinit(void)
     // if the device is running, stop it
     if (gpDev != NULL)
     {
-        gpDev->giDevices--;
         gpDev->pBSPFvdPowerDown(gpDev);
         gpDev->pCleanupGpio(gpDev);
         device_destroy(gpDev->fvd_class, gpDev->fvd_dev);
         class_destroy(gpDev->fvd_class);
         unregister_chrdev_region(gpDev->fvd_dev, 1);
     	platform_device_unregister(gpDev->pLinuxDevice);
-        if (gpDev->giDevices == 0)
+        kfree(gpDev);
+        gpDev = NULL;
+        if (gpBlob)
         {
-        	kfree(gpDev);
-			gpDev = NULL;
-	        if (gpBlob)
-	        {
-	            kfree(gpBlob);
-	            gpBlob = NULL;
-	        }
+            kfree(gpBlob);
+            gpBlob = NULL;
         }
     }
 }
@@ -300,6 +298,43 @@ DWORD DoIOControl(
                 memset(gpBlob, 0, blobsize);
                 dwErr = ERROR_SUCCESS;
             }
+        }
+        break;
+
+    case IOCTL_FVDK_LOCK:
+        {
+            int lock = *(ULONG*)pBuf >> 16;
+            int unlock = *(ULONG*)pBuf & 0xFFFF;
+
+            switch (unlock)
+            {
+            case LDRV:
+                up(&gpDev->muDevice);
+                break;
+            case LEXEC:
+                up(&gpDev->muExecute);
+                break;
+            case LLEPT:
+                up(&gpDev->muLepton);
+                break;
+            }
+            switch (lock)
+            {
+            case LNONE:
+                dwErr = ERROR_SUCCESS;
+                break;
+            case LDRV:
+                dwErr = down_timeout(&gpDev->muDevice, msecs_to_jiffies(1000));
+                break;
+            case LEXEC:
+                dwErr = down_timeout(&gpDev->muExecute, msecs_to_jiffies(1000));
+                break;
+            case LLEPT:
+                dwErr = down_timeout(&gpDev->muLepton, msecs_to_jiffies(1000));
+                break;
+            }
+            if (dwErr)
+                pr_err("Lock failed %d %d %d\n", unlock, lock, (int)dwErr);
         }
         break;
 
