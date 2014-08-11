@@ -32,6 +32,8 @@
 static long FVD_IOControl(struct file *filep,
                           unsigned int cmd,
                           unsigned long arg);
+static int FVD_Open(struct inode *inode,
+                    struct file *filp);
 static DWORD DoIOControl(PFVD_DEV_INFO pDev,
                          DWORD  Ioctl,
                          PUCHAR pBuf,
@@ -49,6 +51,7 @@ static struct file_operations fvd_fops =
 {
         .owner = THIS_MODULE,
         .unlocked_ioctl = FVD_IOControl,
+        .open = FVD_Open,
        	.mmap = FVD_mmap,
 };
 
@@ -70,9 +73,7 @@ static int FVD_mmap (struct file * filep, struct vm_area_struct * vma)
 
 static int __init FVD_Init(void)
 {
-    DWORD dwStatus;
     int i;
-    DWORD timeout = 50;
 
     pr_err("FVD_Init\n");
 
@@ -127,32 +128,11 @@ static int __init FVD_Init(void)
         return -5;
     }
 
-	gpDev->pBSPFvdPowerUp(gpDev);
-
-    pr_err("FVD will load FPGA\n");
-
-    // Load MAIN FPGA
-	dwStatus = LoadFPGA(gpDev, "");
-
-    if (dwStatus != ERROR_SUCCESS)
-    {
-    	pr_debug ("FVD_Init: LoadFPGA failed %lu\n", dwStatus);
-        return -1;
-    }
-
-    // Wait until FPGA loaded
-    while (timeout--)
-    {
-    	msleep (10);
-        if (gpDev->pGetPinReady() == 0)
-            break;
-    }
-
     sema_init(&gpDev->muDevice, 1);
     sema_init(&gpDev->muLepton, 1);
     sema_init(&gpDev->muExecute, 1);
 
-	pr_err("FVD_Init completed (%ld)\n", timeout);
+	pr_err("FVD_Init completed\n");
 
     return 0;
 }
@@ -179,6 +159,47 @@ static void __devexit FVD_Deinit(void)
             gpBlob = NULL;
         }
     }
+}
+
+////////////////////////////////////////////////////////
+//
+// FVD_Open
+//
+////////////////////////////////////////////////////////
+static int FVD_Open (struct inode *inode, struct file *filp)
+{
+    static BOOL init;
+    DWORD dwStatus;
+    DWORD timeout = 50;
+
+    down(&gpDev->muDevice);
+    if (!init)
+    {
+        gpDev->pBSPFvdPowerUp(gpDev);
+
+        pr_err("FVD will load FPGA\n");
+
+        // Load MAIN FPGA
+        dwStatus = LoadFPGA(gpDev, "");
+
+        if (dwStatus != ERROR_SUCCESS)
+        {
+            pr_debug ("FVD_Init: LoadFPGA failed %lu\n", dwStatus);
+            return -1;
+        }
+
+        // Wait until FPGA loaded
+        while (timeout--)
+        {
+            msleep (10);
+            if (gpDev->pGetPinReady() == 0)
+                break;
+        }
+        init = TRUE;
+    }
+    up(&gpDev->muDevice);
+
+    return 0;
 }
 
 ////////////////////////////////////////////////////////

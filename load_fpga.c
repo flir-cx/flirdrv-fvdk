@@ -24,6 +24,7 @@
 #include "linux/spi/spi.h"
 #include "linux/firmware.h"
 #include <linux/platform_device.h>
+#include <linux/i2c.h>
 
 // Definitions
 #define ERROR_NO_INIT_OK        10001
@@ -36,6 +37,59 @@
 // Local data
 static const struct firmware *pFW;
 
+static BOOL GetMainboardVersion(int *article, int* revision)
+{
+    struct i2c_msg msgs[2];
+    int ret = 1;
+    struct i2c_adapter *adap;
+    UCHAR addr;
+    struct
+    {
+        char article[10];
+        char serial[10];
+        char revision[4];
+        char moduleOffset[2];
+        char moduleDevice[2];
+        char reserved[2];
+        unsigned short checksum;
+    } HWrev;    /**< 32 bytes including checksum */
+
+    static int savedArticle;
+    static int savedRevision;
+
+    if (!savedArticle)
+    {
+        adap = i2c_get_adapter(2);
+
+        msgs[0].addr = 0xAE >> 1;
+        msgs[1].addr = msgs[0].addr;
+        msgs[0].flags = 0;
+        msgs[0].len = 1;
+        msgs[0].buf = &addr;
+        msgs[1].flags = I2C_M_RD | I2C_M_NOSTART;
+        msgs[1].len = sizeof(HWrev);
+        msgs[1].buf = (UCHAR *)&HWrev;
+        addr = 0x40;
+
+        ret = i2c_transfer(adap, msgs, 2);
+        i2c_put_adapter(adap);
+        if (ret > 0)
+        {
+            sscanf(HWrev.article, "T%d", &savedArticle);
+            sscanf(HWrev.revision, "%d", &savedRevision);
+            pr_err("FVD: Mainboard article %d revision %d\n", savedArticle, savedRevision);
+        }
+        else
+        {
+            pr_err("Failed reading article (%d)\n", ret);
+        }
+    }
+    *article = savedArticle;
+    *revision = savedRevision;
+
+    return (ret > 0);
+}
+
 // Code
 PUCHAR getFPGAData(PFVD_DEV_INFO pDev,
                    ULONG* size,
@@ -44,16 +98,33 @@ PUCHAR getFPGAData(PFVD_DEV_INFO pDev,
     GENERIC_FPGA_T* pGen;
     BXAB_FPGA_T* pSpec;
     int err;
+    int article=0, revision=0;
+    char * name;
+
+    GetMainboardVersion (&article, &revision);
+    switch (article)
+    {
+    case 198606:
+        if (revision >= 4)
+            name = "fpga_neco_c.bin";
+        else
+            name = "fpga_neco_b.bin";
+        break;
+
+    default:
+        name = "fpga.bin";
+        break;
+    }
 
     /* Request firmware from user space */
-    err = request_firmware(&pFW, "fpga.bin", &pDev->pLinuxDevice->dev);
+    err = request_firmware(&pFW, name, &pDev->pLinuxDevice->dev);
     if (err)
     {
-        pr_err("Failed to get a file\n");
+        pr_err("Failed to get file %s\n", name);
         return(NULL);
     }
 
-    pr_err("Got %d bytes of firmware\n", pFW->size);
+    pr_err("Got %d bytes of firmware from %s\n", pFW->size, name);
 
     /* Read generic header */
     if (pFW->size < sizeof(GENERIC_FPGA_T))
