@@ -21,6 +21,8 @@
 #ifndef __FVD_INTERNAL_H__
 #define __FVD_INTERNAL_H__
 
+#include <linux/proc_fs.h>
+
 #define FVD_MINOR_VERSION   0
 #define FVD_MAJOR_VERSION   1
 #define FVD_VERSION ((FVD_MAJOR_VERSION << 16) | FVD_MINOR_VERSION)
@@ -33,9 +35,11 @@ typedef struct __FVD_DEV_INFO
     struct cdev 				fvd_cdev;   	  // Linux character device
     dev_t 						fvd_dev;		  // Major.Minor device number
     struct class               *fvd_class;
+    struct proc_dir_entry      *proc;             // proc fs entry
 
     // FPGA header
-    char                        fpga[400];                      // FPGA Header data buffer
+    char                        fpga[400];        // FPGA Header data buffer
+    char                       *filename;
 
     // CPU specific function pointers
     BOOL (*pSetupGpioAccess)(void);
@@ -57,6 +61,14 @@ typedef struct __FVD_DEV_INFO
     // CPU specific parameters
     int							iSpiBus;
     int							iSpiCountDivisor;
+
+    // Statistics
+    int iCtrMuDevice;
+    int iCtrMuLepton;
+    int iCtrMuExecute;
+    int iFailMuDevice;
+    int iFailMuLepton;
+    int iFailMuExecute;
 } FVD_DEV_INFO, *PFVD_DEV_INFO;
 
 // Function prototypes to set up hardware specific items

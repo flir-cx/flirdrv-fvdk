@@ -71,6 +71,33 @@ static int FVD_mmap (struct file * filep, struct vm_area_struct * vma)
     return 0;
 }
 
+// Put data into the proc fs file.
+static int FVD_procfs_read(char *page, char **start, off_t offset,
+                               int page_size, int *eof, void *data)
+{
+    PFVD_DEV_INFO pdev = (PFVD_DEV_INFO) data;
+    int len;
+
+    if (offset > 0)
+    {
+        *eof = 1;
+        return 0;
+    }
+
+    len = snprintf(page, page_size,
+            "FPGA file    : %s\n"
+            "Device mutex : %d (%d fails)\n"
+            "Lepton mutex : %d (%d fails)\n"
+            "Exec mutex   : %d (%d fails)\n",
+            pdev->filename,
+            pdev->iCtrMuDevice, pdev->iFailMuDevice,
+            pdev->iCtrMuLepton, pdev->iFailMuLepton,
+            pdev->iCtrMuExecute, pdev->iFailMuExecute);
+
+    *eof = 1;
+    return len;
+}
+
 static int __init FVD_Init(void)
 {
     int i;
@@ -126,6 +153,12 @@ static int __init FVD_Init(void)
         kfree(gpDev);
     	pr_err("Error setting up GPIO\n");
         return -5;
+    }
+
+    /* Setup /proc read only file system entry. */
+    gpDev->proc = create_proc_read_entry("fvdk", 0, NULL, FVD_procfs_read, gpDev);
+    if (gpDev->proc == NULL) {
+        pr_err("failed to add proc fs entry\n");
     }
 
     sema_init(&gpDev->muDevice, 1);
@@ -346,12 +379,21 @@ DWORD DoIOControl(
                 break;
             case LDRV:
                 dwErr = down_timeout(&gpDev->muDevice, msecs_to_jiffies(1000));
+                pDev->iCtrMuDevice++;
+                if (dwErr)
+                    pDev->iFailMuDevice++;
                 break;
             case LEXEC:
                 dwErr = down_timeout(&gpDev->muExecute, msecs_to_jiffies(1000));
+                pDev->iCtrMuLepton++;
+                if (dwErr)
+                    pDev->iFailMuLepton++;
                 break;
             case LLEPT:
                 dwErr = down_timeout(&gpDev->muLepton, msecs_to_jiffies(1000));
+                pDev->iCtrMuExecute++;
+                if (dwErr)
+                    pDev->iFailMuExecute++;
                 break;
             }
             if (dwErr)

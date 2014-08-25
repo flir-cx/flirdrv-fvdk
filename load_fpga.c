@@ -99,32 +99,31 @@ PUCHAR getFPGAData(PFVD_DEV_INFO pDev,
     BXAB_FPGA_T* pSpec;
     int err;
     int article=0, revision=0;
-    char * name;
 
     GetMainboardVersion (&article, &revision);
     switch (article)
     {
     case 198606:
         if (revision >= 4)
-            name = "fpga_neco_c.bin";
+            pDev->filename = "fpga_neco_c.bin";
         else
-            name = "fpga_neco_b.bin";
+            pDev->filename = "fpga_neco_b.bin";
         break;
 
     default:
-        name = "fpga.bin";
+        pDev->filename = "fpga.bin";
         break;
     }
 
     /* Request firmware from user space */
-    err = request_firmware(&pFW, name, &pDev->pLinuxDevice->dev);
+    err = request_firmware(&pFW, pDev->filename, &pDev->pLinuxDevice->dev);
     if (err)
     {
-        pr_err("Failed to get file %s\n", name);
+        pr_err("Failed to get file %s\n", pDev->filename);
         return(NULL);
     }
 
-    pr_err("Got %d bytes of firmware from %s\n", pFW->size, name);
+    pr_err("Got %d bytes of firmware from %s\n", pFW->size, pDev->filename);
 
     /* Read generic header */
     if (pFW->size < sizeof(GENERIC_FPGA_T))
