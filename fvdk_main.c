@@ -378,19 +378,19 @@ DWORD DoIOControl(
                 dwErr = ERROR_SUCCESS;
                 break;
             case LDRV:
-                dwErr = down_timeout(&gpDev->muDevice, msecs_to_jiffies(1000));
+                dwErr = down_timeout(&gpDev->muDevice, msecs_to_jiffies(2000));
                 pDev->iCtrMuDevice++;
                 if (dwErr)
                     pDev->iFailMuDevice++;
                 break;
             case LEXEC:
-                dwErr = down_timeout(&gpDev->muExecute, msecs_to_jiffies(1000));
+                dwErr = down_timeout(&gpDev->muExecute, msecs_to_jiffies(2000));
                 pDev->iCtrMuLepton++;
                 if (dwErr)
                     pDev->iFailMuLepton++;
                 break;
             case LLEPT:
-                dwErr = down_timeout(&gpDev->muLepton, msecs_to_jiffies(1000));
+                dwErr = down_timeout(&gpDev->muLepton, msecs_to_jiffies(2000));
                 pDev->iCtrMuExecute++;
                 if (dwErr)
                     pDev->iFailMuExecute++;
