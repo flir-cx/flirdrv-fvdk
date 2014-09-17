@@ -21,9 +21,17 @@
 #include "fpga.h"
 #include "fvdkernel.h"
 #include "fvdk_internal.h"
-#include "mach/mx6.h"
 #include "asm/io.h"
 #include <linux/platform_device.h>
+
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#include "../arch/arm/mach-imx/mx6.h"
+#else
+#include "mach/mx6.h"
+#endif
+
+
 
 // Definitions
 #define FPGA_CE			((5-1)*32 + 28)		// GPIO 5.28

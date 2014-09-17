@@ -21,9 +21,15 @@
 #include "fpga.h"
 #include "fvdkernel.h"
 #include "fvdk_internal.h"
-#include "mach/mx51.h"
 #include "asm/io.h"
 #include <linux/platform_device.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#include "../arch/arm/mach-imx/mx51.h"
+#else
+#include "mach/mx51.h"
+#endif
+
 
 // Definitions
 #define FPGA_CE			((4-1)*32 + 24)		// GPIO 4.24

@@ -26,6 +26,18 @@
 #include <linux/platform_device.h>
 #include <linux/mm.h>
 
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#include "../arch/arm/mach-imx/hardware.h"
+
+#ifndef __devexit
+#define __devexit
+#endif
+
+#endif
+
+
+
 // Definitions
 
 // Local prototypes
@@ -47,29 +59,48 @@ static PFVD_DEV_INFO gpDev;
 static char * gpBlob;
 static int blobsize;
 
-static struct file_operations fvd_fops =
-{
-        .owner = THIS_MODULE,
-        .unlocked_ioctl = FVD_IOControl,
-        .open = FVD_Open,
-       	.mmap = FVD_mmap,
-};
-
 // Code
 
-static int FVD_mmap (struct file * filep, struct vm_area_struct * vma)
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+static int read_proc(struct seq_file *m, void *v);
+static int fvd_proc_open(struct inode *inode, struct file *file);
+
+static const struct file_operations fvd_proc_fops = {
+     .owner = THIS_MODULE,
+     .open		= fvd_proc_open,
+    .read		= seq_read,
+    .llseek		= seq_lseek,
+    .release	= single_release,
+
+};
+
+static int fvd_proc_open(struct inode *inode, struct file *file)
 {
-    int size;
+    return single_open(file, read_proc, PDE_DATA(inode));
+}
 
-    size = vma->vm_end - vma->vm_start;
 
-    if ( size > blobsize)
-        return -EINVAL;
-    if ( remap_pfn_range (vma, vma->vm_start, __pa(gpBlob) >> PAGE_SHIFT, size,
-                  vma->vm_page_prot ) )
-        return -EAGAIN ;
+static int
+read_proc(struct seq_file *m, void *v)
+{
+
+   PFVD_DEV_INFO pdev = (PFVD_DEV_INFO) m->private;
+   seq_printf(m,
+           "FPGA file    : %s\n"
+           "Device mutex : %d (%d fails)\n"
+           "Lepton mutex : %d (%d fails)\n"
+           "Exec mutex   : %d (%d fails)\n",
+           pdev->filename,
+           pdev->iCtrMuDevice, pdev->iFailMuDevice,
+           pdev->iCtrMuLepton, pdev->iFailMuLepton,
+           pdev->iCtrMuExecute, pdev->iFailMuExecute);
+
     return 0;
 }
+
+
+#else
 
 // Put data into the proc fs file.
 static int FVD_procfs_read(char *page, char **start, off_t offset,
@@ -97,6 +128,35 @@ static int FVD_procfs_read(char *page, char **start, off_t offset,
     *eof = 1;
     return len;
 }
+#endif
+
+
+static struct file_operations fvd_fops =
+{
+        .owner = THIS_MODULE,
+        .unlocked_ioctl = FVD_IOControl,
+        .open = FVD_Open,
+        .mmap = FVD_mmap,
+};
+
+
+
+static int FVD_mmap (struct file * filep, struct vm_area_struct * vma)
+{
+    int size;
+
+    size = vma->vm_end - vma->vm_start;
+
+    if ( size > blobsize)
+        return -EINVAL;
+    if ( remap_pfn_range (vma, vma->vm_start, __pa(gpBlob) >> PAGE_SHIFT, size,
+                  vma->vm_page_prot ) )
+        return -EAGAIN ;
+    return 0;
+}
+
+
+
 
 static int __init FVD_Init(void)
 {
@@ -156,7 +216,14 @@ static int __init FVD_Init(void)
     }
 
     /* Setup /proc read only file system entry. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+    gpDev->proc = proc_create_data("fvdk", 0, NULL, &fvd_proc_fops, gpDev);
+#else
     gpDev->proc = create_proc_read_entry("fvdk", 0, NULL, FVD_procfs_read, gpDev);
+#endif
+
+
+
     if (gpDev->proc == NULL) {
         pr_err("failed to add proc fs entry\n");
     }
@@ -186,6 +253,7 @@ static void __devexit FVD_Deinit(void)
     	platform_device_unregister(gpDev->pLinuxDevice);
         kfree(gpDev);
         gpDev = NULL;
+        remove_proc_entry("fvdk",NULL);
         if (gpBlob)
         {
             kfree(gpBlob);
@@ -201,6 +269,7 @@ static void __devexit FVD_Deinit(void)
 ////////////////////////////////////////////////////////
 static int FVD_Open (struct inode *inode, struct file *filp)
 {
+
     static BOOL init;
     DWORD dwStatus;
     DWORD timeout = 50;
