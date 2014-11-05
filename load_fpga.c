@@ -90,6 +90,8 @@ static BOOL GetMainboardVersion(int *article, int* revision)
     return (ret > 0);
 }
 
+#define FW_DIR "FLIR/"
+
 // Code
 PUCHAR getFPGAData(PFVD_DEV_INFO pDev,
                    ULONG* size,
@@ -105,13 +107,13 @@ PUCHAR getFPGAData(PFVD_DEV_INFO pDev,
     {
     case 198606:
         if (revision >= 4)
-            pDev->filename = "fpga_neco_c.bin";
+            pDev->filename = FW_DIR "fpga_neco_c.bin";
         else
-            pDev->filename = "fpga_neco_b.bin";
+            pDev->filename = FW_DIR "fpga_neco_b.bin";
         break;
 
     default:
-        pDev->filename = "fpga.bin";
+        pDev->filename = FW_DIR "fpga.bin";
         break;
     }
 
