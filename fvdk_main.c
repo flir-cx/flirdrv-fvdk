@@ -199,10 +199,12 @@ static int __init FVD_Init(void)
     }
     if (cpu_is_mx51())
     	SetupMX51(gpDev);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
     else if(cpu_is_imx6sl())
     	SetupMX6S(gpDev);
     else if(cpu_is_imx6q())
         SetupMX6Q(gpDev);
+#endif
     else
        {pr_err("FVD: Error: Unkown Hardware\n");return -4;}
 
