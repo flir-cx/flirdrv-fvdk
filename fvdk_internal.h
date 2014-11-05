@@ -74,6 +74,7 @@ typedef struct __FVD_DEV_INFO
 // Function prototypes to set up hardware specific items
 void SetupMX51(PFVD_DEV_INFO pDev);
 void SetupMX6S(PFVD_DEV_INFO pDev);
+void SetupMX6Q(PFVD_DEV_INFO pDev);
 
 // Function prototypes for common FVD functions
 DWORD LoadFPGA(PFVD_DEV_INFO pDev, char* szFileName);

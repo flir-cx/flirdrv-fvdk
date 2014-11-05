@@ -177,10 +177,10 @@ DWORD CheckFPGA(PFVD_DEV_INFO pDev)
     return res;
 }
 
-static struct spi_board_info chip = {
-	.modalias = "fvdspi",
-	.max_speed_hz = 10000000,
-	.mode = SPI_MODE_0,
+ struct spi_board_info chip = {
+    .modalias = "fvdspi",
+    .max_speed_hz = 50000000,
+    .mode = SPI_MODE_0,
 };
 
 #define tms(x) (x.tv_sec*1000 + x.tv_usec/1000)
