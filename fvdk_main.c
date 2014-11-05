@@ -25,7 +25,7 @@
 #include "fvdk_internal.h"
 #include <linux/platform_device.h>
 #include <linux/mm.h>
-
+#include <linux/version.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 #include "../arch/arm/mach-imx/hardware.h"
