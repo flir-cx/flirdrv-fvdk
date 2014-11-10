@@ -36,7 +36,11 @@
 
 #else  // LINUX_VERSION_CODE
 #include "mach/mx6.h"
-    #define cpu_is_imx6sl  cpu_is_mx6sl
+//  #define cpu_is_imx6sl  cpu_is_mx6sl
+// 3.0.35 mach/mx6.h does not define imx6s at all (only imx6sl)
+// and without CONFIG_SOC_IMX6Q, all cpu_is_mx6xx() functions are (0)
+// For NECO, we need to assume that cpu_is_imx6s() 
+    #define cpu_is_imx6s()     (1)
     #define cpu_is_imx6q   cpu_is_mx6q
 #endif
 
@@ -204,7 +208,7 @@ static int __init FVD_Init(void)
     }
     if (cpu_is_mx51())
     	SetupMX51(gpDev);
-    else if(cpu_is_imx6sl())
+    else if(cpu_is_imx6s())
     	SetupMX6S(gpDev);
     else if(cpu_is_imx6q())
         SetupMX6Q(gpDev);
