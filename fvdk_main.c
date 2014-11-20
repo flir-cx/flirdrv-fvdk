@@ -201,7 +201,7 @@ static int __init FVD_Init(void)
     }
     if (cpu_is_mx51())
     	SetupMX51(gpDev);
-    else if(cpu_is_imx6s())
+    else if(cpu_is_imx6sl())
     	SetupMX6S(gpDev);
     else if(cpu_is_imx6q())
         SetupMX6Q(gpDev);
