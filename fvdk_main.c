@@ -34,6 +34,8 @@
 #define __devexit
 #endif
 
+#define cpu_is_imx6s   cpu_is_imx6dl
+
 #else  // LINUX_VERSION_CODE
 #include "mach/mx6.h"
     #define cpu_is_imx6s   cpu_is_mx6dl
@@ -201,7 +203,7 @@ static int __init FVD_Init(void)
     }
     if (cpu_is_mx51())
     	SetupMX51(gpDev);
-    else if(cpu_is_imx6sl())
+    else if(cpu_is_imx6s())
     	SetupMX6S(gpDev);
     else if(cpu_is_imx6q())
         SetupMX6Q(gpDev);
