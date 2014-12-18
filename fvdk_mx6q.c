@@ -34,13 +34,13 @@
 
 // Definitions
 #define FPGA_CE			((5-1)*32 + 28)		// GPIO 5.28
-#define FPGA_CONF_DONE	((5-1)*32 + 27)
-#define FPGA_CONFIG		((5-1)*32 + 25)     // GPIO 5.25
-#define FPGA_STATUS		((5-1)*32 + 26)
-#define FPGA_READY		((3-1)*32 + 19)    // GPIO 3.19
-#define FPGA_POWER_EN	((6-1)*32 + 23)
+#define FPGA_CONF_DONE	((7-1)*32 + 13)     // roco <--> bb15 diff
+#define FPGA_CONFIG		((5-1)*32 + 25)
+#define FPGA_STATUS		((4-1)*32 +  5)     // roco <--> bb15 diff
+#define FPGA_READY		((3-1)*32 + 19)
+#define FPGA_POWER_EN	((6-1)*32 + 19)     // roco <--> bb15 diff
 #define FPA_POWER_EN	((6-1)*32 + 29)
-#define FPGA_IRQ_0		((3-1)*32 + 16)   // GPIO 3.16
+#define FPGA_IRQ_0		((3-1)*32 + 16)
 
 #define RETAILMSG(a,b) if (a) pr_err  b
 
@@ -116,10 +116,12 @@ BOOL SetupGpioAccessMX6Q(void)
 	gpio_direction_input(FPGA_STATUS);
 	gpio_direction_input(FPGA_READY);
 
-	gpio_direction_output(FPGA_CE, 1);
-	gpio_direction_output(FPGA_CONFIG, 1);
-	gpio_direction_output(FPGA_POWER_EN, 0);
-	gpio_direction_output(FPA_POWER_EN, 0);
+
+    //Pins already configured in bootloader
+//	gpio_direction_output(FPGA_CE, 1);
+//	gpio_direction_output(FPGA_CONFIG, 1);
+//  gpio_direction_output(FPGA_POWER_EN, 1);
+//	gpio_direction_output(FPA_POWER_EN, 0);
 
     return TRUE;
 }
