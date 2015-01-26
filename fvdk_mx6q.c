@@ -39,8 +39,12 @@
 #define FPGA_STATUS		((4-1)*32 +  5)     // roco <--> bb15 diff
 #define FPGA_READY		((3-1)*32 + 19)
 #define FPGA_POWER_EN	((6-1)*32 + 19)     // roco <--> bb15 diff
-#define FPA_POWER_EN	((6-1)*32 + 29)
+#define _4V0_POWER_EN	((6-1)*32 + 24)
+#define FPA_I2C_EN      ((6-1)*32 + 29)
+#define FPA_POWER_EN	((6-1)*32 + 30)
 #define FPGA_IRQ_0		((3-1)*32 + 16)
+
+
 
 #define RETAILMSG(a,b) if (a) pr_err  b
 
@@ -103,14 +107,23 @@ BOOL SetupGpioAccessMX6Q(void)
 	    pr_err("FpgaPowerEn can not be used\n");
 	if (gpio_is_valid(FPA_POWER_EN) == 0)
 	    pr_err("FpaPowerEn can not be used\n");
+    if (gpio_is_valid(FPA_I2C_EN) == 0)
+        pr_err("FpaI2CEn can not be used\n");
+    if (gpio_is_valid(_4V0_POWER_EN) == 0)
+        pr_err("4V0PowerEn can not be used\n");
 
-	gpio_request(FPGA_CE, "FpgaCE");
+
+    gpio_request(FPGA_CE, "FpgaCE");
 	gpio_request(FPGA_CONF_DONE, "FpgaConfDone");
 	gpio_request(FPGA_CONFIG, "FpgaConfig");
+
+
 	gpio_request(FPGA_STATUS, "FpgaStatus");
 	gpio_request(FPGA_READY, "FpgaReady");
 	gpio_request(FPGA_POWER_EN, "FpgaPowerEn");
 	gpio_request(FPA_POWER_EN, "FpaPowerEn");
+    gpio_request(FPA_I2C_EN, "FpaI2CEn");
+    gpio_request(_4V0_POWER_EN, "4V0En");
 
 	gpio_direction_input(FPGA_CONF_DONE);
 	gpio_direction_input(FPGA_STATUS);
@@ -118,10 +131,15 @@ BOOL SetupGpioAccessMX6Q(void)
 
 
     //Pins already configured in bootloader
-//	gpio_direction_output(FPGA_CE, 1);
-//	gpio_direction_output(FPGA_CONFIG, 1);
-//  gpio_direction_output(FPGA_POWER_EN, 1);
-//	gpio_direction_output(FPA_POWER_EN, 0);
+    gpio_direction_output(FPGA_CE, 1);
+    gpio_direction_output(FPGA_CONFIG, 1);
+    gpio_direction_output(FPGA_POWER_EN, 1);    //Enable fpga power as default
+
+    gpio_direction_output(_4V0_POWER_EN, 1);
+    gpio_direction_output(FPA_POWER_EN, 1);     //Enable fpa i2c   as default
+    gpio_direction_output(FPA_I2C_EN, 0);      //Enable fpa power as default
+
+    BSPFvdPowerUpFPAMX6Q(0);
 
     return TRUE;
 }
@@ -135,6 +153,7 @@ void CleanupGpioMX6Q(PFVD_DEV_INFO pDev)
 	gpio_free(FPGA_READY);
 	gpio_free(FPGA_POWER_EN);
 	gpio_free(FPA_POWER_EN);
+    gpio_free(FPA_I2C_EN);
 }
 
 BOOL GetPinDoneMX6Q(void)
@@ -213,9 +232,15 @@ void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev)
 void BSPFvdPowerDownFPAMX6Q(PFVD_DEV_INFO pDev)
 {
     gpio_set_value(FPA_POWER_EN, 0);
+    gpio_set_value(FPA_I2C_EN, 1);
+    gpio_set_value(_4V0_POWER_EN, 0);
+
 }
 
 void BSPFvdPowerUpFPAMX6Q(PFVD_DEV_INFO pDev)
 {
     gpio_set_value(FPA_POWER_EN, 1);
+    gpio_set_value(FPA_I2C_EN, 0);
+    gpio_set_value(_4V0_POWER_EN, 1);
+
 }
