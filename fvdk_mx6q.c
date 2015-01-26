@@ -210,9 +210,9 @@ DWORD PutInProgrammingModeMX6Q(PFVD_DEV_INFO pDev)
 
 void BSPFvdPowerUpMX6Q(PFVD_DEV_INFO pDev)
 {
-    gpio_set_value(FPGA_POWER_EN, 0);
-	msleep(50);
-	gpio_set_value(FPGA_CE, 0);
+    gpio_set_value(FPGA_POWER_EN, 1);     //Do not power toogle fpga, as power was already enabled in u-boot
+    msleep(50);
+    gpio_set_value(FPGA_CE, 0);
 	gpio_set_value(FPGA_CONFIG, 1);
 }
 
@@ -220,7 +220,7 @@ void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev)
 {
     // This function should suspend power to the device.
     // It is useful only with devices that can power down under software control.
-    gpio_set_value(FPA_POWER_EN, 1);
+    gpio_set_value(FPA_POWER_EN, 0);
 
     // Disable FPGA
 	gpio_set_value(FPGA_CE, 1);

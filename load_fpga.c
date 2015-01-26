@@ -207,6 +207,13 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char* szFileName)
         return ERROR_IO_DEVICE;
     }
 
+    if (pDev->pGetPinDone())
+    {
+        pr_err ("LoadFPGA: Fpga has already been programmed in uboot");
+        goto done;
+        //platforms with pcie loads fpga in u-boot
+    }
+
 	do_gettimeofday(&t[1]);
 
     // swap bit and byte order
@@ -306,7 +313,7 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char* szFileName)
     		tms(t[3]) - tms(t[2]),
     		tms(t[4]) - tms(t[3]),
     		tms(t[5]) - tms(t[4]));
-
+done:
     freeFpgaData();
     return res;
 }

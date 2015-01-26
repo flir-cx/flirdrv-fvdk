@@ -285,12 +285,7 @@ static int FVD_Open (struct inode *inode, struct file *filp)
 
     down(&gpDev->muDevice);
 
-    if (!init && gpDev->pGetPinDone())
-    {
-        pr_debug ("FVD_Open: Fpga already loaded in uboot");
-        init = TRUE;
-    }
-    else if (!init)
+    if (!init)
     {
         gpDev->pBSPFvdPowerUp(gpDev);
 
