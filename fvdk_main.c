@@ -23,9 +23,17 @@
 #include "fpga.h"
 #include "fvdkernel.h"
 #include "fvdk_internal.h"
+#include "roco_header.h"
 #include <linux/platform_device.h>
 #include <linux/mm.h>
 #include <linux/version.h>
+#include <linux/vmalloc.h>
+
+#define	OPCODE_NORM_READ_4B	0x13	/* Read data bytes (low frequency) */
+#define FLASH_SIZE 0x10000000 
+#define HEADER_LENGTH  65536 
+#define HEADER_START_ADDRESS (FLASH_SIZE - HEADER_LENGTH)
+
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 #include "../arch/arm/mach-imx/hardware.h"
@@ -35,6 +43,7 @@
 #endif
 
 #define cpu_is_imx6s   cpu_is_imx6dl
+#define system_is_roco cpu_is_imx6q
 
 #else  // LINUX_VERSION_CODE
 #include "mach/mx6.h"
@@ -271,47 +280,84 @@ static void __devexit FVD_Deinit(void)
     }
 }
 
-////////////////////////////////////////////////////////
-//
-// FVD_Open
-//
-////////////////////////////////////////////////////////
+
+/**
+ *  FVD_Open
+ *
+ * @param inode
+ * @param filp
+ *
+ * @return
+ */
 static int FVD_Open (struct inode *inode, struct file *filp)
 {
 
+    int ret = -1;
     static BOOL init;
     DWORD dwStatus;
     DWORD timeout = 50;
 
     down(&gpDev->muDevice);
 
-    if (!init)
-    {
-        gpDev->pBSPFvdPowerUp(gpDev);
+    if(system_is_roco()){
+	    // For ROCO the FPGA is configured through an SPI NOR Flash memory,
+	    // The Norflash is flashed from userspace application
+	    // Thus, no loading of the FPGA is needed from this driver
+	    // However We need to read out the Header data configured inte to FLASH
+	    // the header data from the fpga.bin file is stored 64 kbit from the end of the 
+	    // memory, 2**28 - 2**16 = 256Mbit - 64 kBit
+	    GENERIC_FPGA_T pGen;
+	    BXAB_FPGA_T pSpec;
+	    unsigned char *rxbuf;
 
-        pr_err("FVD will load FPGA\n");
+	    rxbuf = vmalloc(sizeof (unsigned char) * HEADER_LENGTH);
+	    if(!rxbuf){
+		    pr_err("Failed to allocate memory...\n");
+		    ret = -1;
+		    goto END;
+	    }
+	    ret = read_spi_header(rxbuf);
+	    if(ret < 0){
+		    pr_err("Failed to read data from SPI flash\n");
+		    goto END;
+	    }
 
-        // Load MAIN FPGA
-        dwStatus = LoadFPGA(gpDev, "");
+	    memcpy(gpDev->fpga, rxbuf, sizeof(gpDev->fpga));
+	    ret = 0;
+    END:
+	    vfree(rxbuf);
+	    rxbuf=0;
 
-        if (dwStatus != ERROR_SUCCESS)
-        {
-            pr_debug ("FVD_Init: LoadFPGA failed %lu\n", dwStatus);
-            return -1;
-        }
+    } else {
+	    if (!init)
+	    {
+		    gpDev->pBSPFvdPowerUp(gpDev);
 
-        // Wait until FPGA loaded
-        while (timeout--)
-        {
-            msleep (10);
-            if (gpDev->pGetPinReady() == 0)
-                break;
-        }
-        init = TRUE;
+		    pr_err("FVD will load FPGA\n");
+
+		    // Load MAIN FPGA
+		    dwStatus = LoadFPGA(gpDev, "");
+
+		    if (dwStatus != ERROR_SUCCESS)
+		    {
+			    pr_debug ("FVD_Init: LoadFPGA failed %lu\n", dwStatus);
+			    return -1;
+		    }
+
+		    // Wait until FPGA loaded
+		    while (timeout--)
+		    {
+			    msleep (10);
+			    if (gpDev->pGetPinReady() == 0)
+				    break;
+		    }
+		    init = TRUE;
+	    }
+	    ret = 0;
     }
     up(&gpDev->muDevice);
 
-    return 0;
+    return ret;
 }
 
 ////////////////////////////////////////////////////////
