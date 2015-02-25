@@ -13,6 +13,7 @@
 #include "roco_header.h"
 #include <linux/spi/spi.h>
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 int of_dev_node_match(struct device *dev, void *data)
 {
         return dev->of_node == data;
@@ -238,3 +239,4 @@ END:
 }
 
 
+#endif

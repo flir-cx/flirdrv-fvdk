@@ -49,6 +49,7 @@
 #include "mach/mx6.h"
     #define cpu_is_imx6s   cpu_is_mx6dl
     #define cpu_is_imx6q   cpu_is_mx6q
+    #define system_is_roco cpu_is_imx6q
 #endif
 
 // Definitions
