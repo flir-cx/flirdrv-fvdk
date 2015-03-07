@@ -298,6 +298,9 @@ static int FVD_Open (struct inode *inode, struct file *filp)
     DWORD dwStatus;
     DWORD timeout = 50;
 
+    if (init)
+        return 0;
+
     down(&gpDev->muDevice);
 
     if(system_is_roco()){
@@ -307,8 +310,6 @@ static int FVD_Open (struct inode *inode, struct file *filp)
 	    // However We need to read out the Header data configured inte to FLASH
 	    // the header data from the fpga.bin file is stored 64 kbit from the end of the 
 	    // memory, 2**28 - 2**16 = 256Mbit - 64 kBit
-	    GENERIC_FPGA_T pGen;
-	    BXAB_FPGA_T pSpec;
 	    unsigned char *rxbuf;
 
 	    rxbuf = vmalloc(sizeof (unsigned char) * HEADER_LENGTH);
@@ -325,37 +326,38 @@ static int FVD_Open (struct inode *inode, struct file *filp)
 
 	    memcpy(gpDev->fpga, rxbuf, sizeof(gpDev->fpga));
 	    ret = 0;
+
     END:
 	    vfree(rxbuf);
 	    rxbuf=0;
+        init = TRUE;
 
-    } else {
-	    if (!init)
-	    {
-		    gpDev->pBSPFvdPowerUp(gpDev);
+    } else
+    {
+        gpDev->pBSPFvdPowerUp(gpDev);
 
-		    pr_err("FVD will load FPGA\n");
+        pr_err("FVD will load FPGA\n");
 
-		    // Load MAIN FPGA
-		    dwStatus = LoadFPGA(gpDev, "");
+        // Load MAIN FPGA
+        dwStatus = LoadFPGA(gpDev, "");
 
-		    if (dwStatus != ERROR_SUCCESS)
-		    {
-			    pr_debug ("FVD_Init: LoadFPGA failed %lu\n", dwStatus);
-			    return -1;
-		    }
+        if (dwStatus != ERROR_SUCCESS)
+        {
+            pr_debug ("FVD_Init: LoadFPGA failed %lu\n", dwStatus);
+            return -1;
+        }
 
-		    // Wait until FPGA loaded
-		    while (timeout--)
-		    {
-			    msleep (10);
-			    if (gpDev->pGetPinReady() == 0)
-				    break;
-		    }
-		    init = TRUE;
-	    }
-	    ret = 0;
+        // Wait until FPGA loaded
+        while (timeout--)
+        {
+            msleep (10);
+            if (gpDev->pGetPinReady() == 0)
+                break;
+        }
+        init = TRUE;
+        ret = 0;
     }
+
     up(&gpDev->muDevice);
 
     return ret;
