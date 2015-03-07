@@ -55,7 +55,7 @@
 
 // Local prototypes
 
-static BOOL SetupGpioAccessMX6S(void);
+static BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev);
 static void CleanupGpioMX6S(PFVD_DEV_INFO pDev);
 static BOOL GetPinDoneMX6S(void);
 static BOOL GetPinStatusMX6S(void);
@@ -86,9 +86,10 @@ void SetupMX6S(PFVD_DEV_INFO pDev)
 
     pDev->iSpiBus = 0;			// SPI no = 0
     pDev->iSpiCountDivisor = 1;	// Count is no of bytes
+    pDev->iI2c = 2;	// Main i2c bus
 }
 
-BOOL SetupGpioAccessMX6S(void)
+BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 {
 	if (gpio_is_valid(FPGA_CE) == 0)
 	    pr_err("FpgaCE can not be used\n");

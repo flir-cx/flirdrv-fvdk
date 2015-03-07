@@ -25,6 +25,7 @@
 #include "linux/firmware.h"
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
+#include <linux/errno.h>
 
 // Definitions
 #define ERROR_NO_INIT_OK        10001
@@ -37,12 +38,13 @@
 // Local data
 static const struct firmware *pFW;
 
-static BOOL GetMainboardVersion(int *article, int* revision)
+BOOL GetMainboardVersion(PFVD_DEV_INFO pDev, int *article, int* revision)
 {
     struct i2c_msg msgs[2];
     int ret = 1;
     struct i2c_adapter *adap;
     UCHAR addr;
+    int iI2c = pDev->iI2c;
     struct
     {
         char article[10];
@@ -59,7 +61,9 @@ static BOOL GetMainboardVersion(int *article, int* revision)
 
     if (!savedArticle)
     {
-        adap = i2c_get_adapter(2);
+        adap = i2c_get_adapter(iI2c);
+        if(!adap)
+            return -ENXIO;
 
         msgs[0].addr = 0xAE >> 1;
         msgs[1].addr = msgs[0].addr;
@@ -81,7 +85,7 @@ static BOOL GetMainboardVersion(int *article, int* revision)
         }
         else
         {
-            pr_err("Failed reading article (%d)\n", ret);
+            pr_err("FVD: Failed reading article (%d)\n", ret);
         }
     }
     *article = savedArticle;
@@ -102,7 +106,7 @@ PUCHAR getFPGAData(PFVD_DEV_INFO pDev,
     int err;
     int article=0, revision=0;
 
-    GetMainboardVersion (&article, &revision);
+    GetMainboardVersion (pDev,&article, &revision);
     switch (article)
     {
     case 198606:

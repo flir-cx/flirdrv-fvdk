@@ -46,7 +46,7 @@
 // Local prototypes
 
 
-static BOOL SetupGpioAccessMX51(void);
+static BOOL SetupGpioAccessMX51(PFVD_DEV_INFO pDev);
 static void CleanupGpioMX51(PFVD_DEV_INFO pDev);
 static BOOL GetPinDoneMX51(void);
 static BOOL GetPinStatusMX51(void);
@@ -89,10 +89,11 @@ void SetupMX51(PFVD_DEV_INFO pDev)
 
     pDev->iSpiBus = 1;			// SPI no = 1
     pDev->iSpiCountDivisor = 4;	// Count is no of words
+    pDev->iI2c = 2;	// Main i2c bus
 }
 
 
-BOOL SetupGpioAccessMX51(void)
+BOOL SetupGpioAccessMX51(PFVD_DEV_INFO pDev)
 {
 	if (gpio_is_valid(FPGA_CE) == 0)
 	    pr_err("FpgaCE can not be used\n");

@@ -227,7 +227,7 @@ static int __init FVD_Init(void)
     device_create(gpDev->fvd_class, NULL, gpDev->fvd_dev, NULL, "fvdk");
 
     // DDK not used as DLL to avoid compatibility issues between fvd.dll and OS image
-    if (!gpDev->pSetupGpioAccess())
+    if (!gpDev->pSetupGpioAccess(gpDev))
     {
         kfree(gpDev);
     	pr_err("Error setting up GPIO\n");

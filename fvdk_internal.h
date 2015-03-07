@@ -42,7 +42,7 @@ typedef struct __FVD_DEV_INFO
     char                       *filename;
 
     // CPU specific function pointers
-    BOOL (*pSetupGpioAccess)(void);
+    BOOL (*pSetupGpioAccess)(struct __FVD_DEV_INFO * pDev);
     void (*pCleanupGpio)(struct __FVD_DEV_INFO * pDev);
     BOOL (*pGetPinDone)(void);
     BOOL (*pGetPinStatus)(void);
@@ -61,6 +61,7 @@ typedef struct __FVD_DEV_INFO
     // CPU specific parameters
     int							iSpiBus;
     int							iSpiCountDivisor;
+    int                         iI2c;   //Main i2c bus (eeprom)
 
     // Statistics
     int iCtrMuDevice;
@@ -80,9 +81,12 @@ void SetupMX6Q(PFVD_DEV_INFO pDev);
 DWORD LoadFPGA(PFVD_DEV_INFO pDev, char* szFileName);
 PUCHAR getFPGAData(PFVD_DEV_INFO pDev, ULONG* size, char* out_revision);
 void freeFpgaData(void);
+BOOL GetMainboardVersion(PFVD_DEV_INFO pDev, int *article, int* revision);
 
 #define 	FVD_BSP_PIBB        0
 #define 	FVD_BSP_ASBB	    1  // Astra + Nettan
+
+#define ROCO_ARTNO			198752 //T198752 ROCO  mainboard article no (Rocky)
 
 enum locks { LNONE, LDRV, LEXEC, LLEPT };
 
