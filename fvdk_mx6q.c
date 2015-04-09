@@ -102,39 +102,71 @@ BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev)
     if(article==ROCO_ARTNO && revision == 1)
            fpgaPower = FPGA_POWER_EN_ROCO_A;
 
-    if (gpio_is_valid(FPGA_CE) == 0)
+    if (gpio_is_valid(FPGA_CE) == 0){
 	    pr_err("FpgaCE can not be used\n");
-	if (gpio_is_valid(FPGA_CONF_DONE) == 0)
-	    pr_err("FpgaConfDone can not be used\n");
-	if (gpio_is_valid(FPGA_CONFIG) == 0)
-	    pr_err("FpgaConfig can not be used\n");
-	if (gpio_is_valid(FPGA_STATUS) == 0)
-	    pr_err("FpgaStatus can not be used\n");
-	if (gpio_is_valid(FPGA_READY) == 0)
-	    pr_err("FpgaReady can not be used\n");
-    if (gpio_is_valid(fpgaPower) == 0)
-	    pr_err("FpgaPowerEn can not be used\n");
-	if (gpio_is_valid(FPA_POWER_EN) == 0)
-	    pr_err("FpaPowerEn can not be used\n");
-    if (gpio_is_valid(FPA_I2C_EN) == 0)
-        pr_err("FpaI2CEn can not be used\n");
-    if (gpio_is_valid(_4V0_POWER_EN) == 0)
-        pr_err("4V0PowerEn can not be used\n");
-
+    } else {
     gpio_request(FPGA_CE, "FpgaCE");
+    }
+    if (gpio_is_valid(FPGA_CONF_DONE) == 0){
+	    pr_err("FpgaConfDone can not be used\n");
+    } else {
 	gpio_request(FPGA_CONF_DONE, "FpgaConfDone");
-	gpio_request(FPGA_CONFIG, "FpgaConfig");
-
-	gpio_request(FPGA_STATUS, "FpgaStatus");
-	gpio_request(FPGA_READY, "FpgaReady");
-    gpio_request(fpgaPower, "FpgaPowerEn");
-	gpio_request(FPA_POWER_EN, "FpaPowerEn");
-    gpio_request(FPA_I2C_EN, "FpaI2CEn");
-    gpio_request(_4V0_POWER_EN, "4V0En");
-
 	gpio_direction_input(FPGA_CONF_DONE);
+    }
+    if (gpio_is_valid(FPGA_CONFIG) == 0){
+	    pr_err("FpgaConfig can not be used\n");
+    } else {
+	gpio_request(FPGA_CONFIG, "FpgaConfig");
+    }
+    if (gpio_is_valid(FPGA_STATUS) == 0){
+	    pr_err("FpgaStatus can not be used\n");
+    } else{
+	gpio_request(FPGA_STATUS, "FpgaStatus");
 	gpio_direction_input(FPGA_STATUS);
+    }
+    if (gpio_is_valid(FPGA_READY) == 0){
+	    pr_err("FpgaReady can not be used\n");
+    } else{
+	gpio_request(FPGA_READY, "FpgaReady");
 	gpio_direction_input(FPGA_READY);
+    }
+    if (gpio_is_valid(fpgaPower) == 0){
+	    pr_err("FpgaPowerEn can not be used\n");
+    } else {
+	    gpio_request(fpgaPower, "FpgaPowerEn");
+    }
+	if (gpio_is_valid(FPA_POWER_EN) == 0)
+	{
+	    pr_err("FpaPowerEn can not be used\n");
+	} else {
+		gpio_request(FPA_POWER_EN, "FpaPowerEn");
+	}
+
+	if (gpio_is_valid(FPA_I2C_EN) == 0){
+        pr_err("FpaI2CEn can not be used\n");
+	} else {
+		gpio_request(FPA_I2C_EN, "FpaI2CEn");
+	}
+
+	if (gpio_is_valid(_4V0_POWER_EN) == 0){
+		pr_err("4V0PowerEn can not be used\n");
+	} else {
+		gpio_request(_4V0_POWER_EN, "4V0En");
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     //Pins already configured in bootloader
     gpio_direction_output(FPGA_CE, 0);
