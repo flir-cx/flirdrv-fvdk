@@ -229,7 +229,7 @@ void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev)
     // Disable FPGA
 	gpio_set_value(FPGA_CE, 1);
 	msleep(1);
-    gpio_set_value(fpgaPower, 0);
+//    gpio_set_value(fpgaPower, 0);
 }
 
 // Separate FPA power down
