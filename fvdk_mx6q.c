@@ -143,7 +143,7 @@ void SetupMX6Q(PFVD_DEV_INFO pDev)
 	               
 	    //Pins already configured in bootloader
 	    gpio_direction_output(FPGA_CE, 0);
-	gpio_direction_output(FPGA_CONFIG, 0);
+	gpio_direction_output(FPGA_CONFIG, 1);
 	gpio_direction_output(fpgaPower, 1);	//Enable fpga power as default
 	gpio_direction_output(_4V0_POWER_EN, 1);
 	gpio_direction_output(FPA_POWER_EN, 1);	//Enable fpa i2c   as default
