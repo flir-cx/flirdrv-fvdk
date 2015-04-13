@@ -85,7 +85,9 @@ void SetupMX6Q(PFVD_DEV_INFO pDev)
 	 pDev->iSpiBus = 32766;	// SPI no = 0
 	pDev->iSpiCountDivisor = 1;	// Count is no of bytes
 	pDev->iI2c = 3;		// Main i2c bus
-}  BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev) 
+}
+
+BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev) 
 {
 	int article, revision;
 	 GetMainboardVersion(pDev, &article, &revision);
@@ -151,7 +153,7 @@ void SetupMX6Q(PFVD_DEV_INFO pDev)
 	return TRUE;
 }
 
- void CleanupGpioMX6Q(PFVD_DEV_INFO pDev) 
+void CleanupGpioMX6Q(PFVD_DEV_INFO pDev) 
 {
 	gpio_free(FPGA_CE);
 	gpio_free(FPGA_CONF_DONE);
@@ -161,22 +163,24 @@ void SetupMX6Q(PFVD_DEV_INFO pDev)
 	gpio_free(fpgaPower);
 	gpio_free(FPA_POWER_EN);
 	gpio_free(FPA_I2C_EN);
-}  BOOL GetPinDoneMX6Q(void) 
+}
+
+BOOL GetPinDoneMX6Q(void) 
 {
 	return (gpio_get_value(FPGA_CONF_DONE) != 0);
 }
 
- BOOL GetPinStatusMX6Q(void)
+BOOL GetPinStatusMX6Q(void)
 {
 	return (gpio_get_value(FPGA_STATUS) != 0);
 }
 
- BOOL GetPinReadyMX6Q(void)
+BOOL GetPinReadyMX6Q(void)
 {
 	return (gpio_get_value(FPGA_READY) != 0);
 }
 
- DWORD PutInProgrammingModeMX6Q(PFVD_DEV_INFO pDev) 
+DWORD PutInProgrammingModeMX6Q(PFVD_DEV_INFO pDev) 
 {
 	
 	    // Set idle state (probably already done)
@@ -213,13 +217,15 @@ void SetupMX6Q(PFVD_DEV_INFO pDev)
 	return 1;
 }
 
- void BSPFvdPowerUpMX6Q(PFVD_DEV_INFO pDev) 
+void BSPFvdPowerUpMX6Q(PFVD_DEV_INFO pDev) 
 {
 	gpio_set_value(fpgaPower, 1);
 	msleep(50);
 	gpio_set_value(FPGA_CE, 0);
 	gpio_set_value(FPGA_CONFIG, 1);
-}  void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev) 
+}
+
+void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev) 
 {
 	
 	    // This function should suspend power to the device.
@@ -239,9 +245,10 @@ void BSPFvdPowerDownFPAMX6Q(PFVD_DEV_INFO pDev)
 	gpio_set_value(FPA_POWER_EN, 0);
 	gpio_set_value(FPA_I2C_EN, 1);
 	gpio_set_value(_4V0_POWER_EN, 0);
- }  void BSPFvdPowerUpFPAMX6Q(PFVD_DEV_INFO pDev) 
+}
+void BSPFvdPowerUpFPAMX6Q(PFVD_DEV_INFO pDev) 
 {
 	gpio_set_value(FPA_POWER_EN, 1);
 	gpio_set_value(FPA_I2C_EN, 0);
 	gpio_set_value(_4V0_POWER_EN, 1);
- } 
+} 
