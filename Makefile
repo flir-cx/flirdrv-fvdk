@@ -8,6 +8,9 @@ ifeq ($(KERNEL_SRC),)
 	KERNEL_SRC ?= ~/linux/flir-yocto/build_pico/tmp-eglibc/work/neco-oe-linux-gnueabi/linux-boundary/3.0.35-r0/git
 endif
 
+ifneq ($(KERNEL_PATH),)
+       KERNEL_SRC = $(KERNEL_PATH)
+endif
 
 EXTRA_CFLAGS = -I$(ALPHAREL)/SDK/FLIR/Include -DFVD_DEPRECIATED_OK=0
 
