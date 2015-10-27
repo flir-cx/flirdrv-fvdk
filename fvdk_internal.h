@@ -30,46 +30,48 @@
 // this structure keeps track of the device instance
 typedef struct __FVD_DEV_INFO 
 {
-    // Linux driver variables
-	struct platform_device *    pLinuxDevice;
-    struct cdev 				fvd_cdev;   	  // Linux character device
-    dev_t 						fvd_dev;		  // Major.Minor device number
-    struct class               *fvd_class;
-    struct proc_dir_entry      *proc;             // proc fs entry
+	// Linux driver variables
+	struct platform_device 	*pLinuxDevice;
+	struct cdev		fvd_cdev;	// Linux character device
+	dev_t 			fvd_dev;	// Major.Minor device number
+	struct class		*fvd_class;
+	struct proc_dir_entry	*proc;		// proc fs entry
+	BOOL			fpgaLoaded;
 
-    // FPGA header
-    char                        fpga[400];        // FPGA Header data buffer
-    char                       *filename;
+	// FPGA header
+	char			fpga[400];	// FPGA Header data buffer
+	char			*filename;
 
-    // CPU specific function pointers
-    BOOL (*pSetupGpioAccess)(struct __FVD_DEV_INFO * pDev);
-    void (*pCleanupGpio)(struct __FVD_DEV_INFO * pDev);
-    BOOL (*pGetPinDone)(void);
-    BOOL (*pGetPinStatus)(void);
-    BOOL (*pGetPinReady)(void);
-    DWORD (*pPutInProgrammingMode)(struct __FVD_DEV_INFO * pDev);
-    void (*pBSPFvdPowerUp)(struct __FVD_DEV_INFO * pDev);
-    void (*pBSPFvdPowerDown)(struct __FVD_DEV_INFO * pDev);
-    void (*pBSPFvdPowerDownFPA)(struct __FVD_DEV_INFO * pDev);
-    void (*pBSPFvdPowerUpFPA)(struct __FVD_DEV_INFO * pDev);
+	// CPU specific function pointers
+	BOOL (*pSetupGpioAccess)(struct __FVD_DEV_INFO * pDev);
+	void (*pCleanupGpio)(struct __FVD_DEV_INFO * pDev);
+	BOOL (*pGetPinDone)(void);
+	BOOL (*pGetPinStatus)(void);
+	BOOL (*pGetPinReady)(void);
+	DWORD (*pPutInProgrammingMode)(struct __FVD_DEV_INFO * pDev);
+	void (*pBSPFvdPowerUp)(struct __FVD_DEV_INFO * pDev, BOOL restart);
+	void (*pBSPFvdPowerDown)(struct __FVD_DEV_INFO * pDev);
+	void (*pBSPFvdPowerDownFPA)(struct __FVD_DEV_INFO * pDev);
+	void (*pBSPFvdPowerUpFPA)(struct __FVD_DEV_INFO * pDev);
 
-    // Locks
-    struct semaphore            muDevice;
-    struct semaphore            muLepton;
-    struct semaphore            muExecute;
+	// Locks
+	struct semaphore            muDevice;
+	struct semaphore            muLepton;
+	struct semaphore            muExecute;
+	struct semaphore            muStandby;
 
-    // CPU specific parameters
-    int							iSpiBus;
-    int							iSpiCountDivisor;
-    int                         iI2c;   //Main i2c bus (eeprom)
+	// CPU specific parameters
+	int							iSpiBus;
+	int							iSpiCountDivisor;
+	int                         iI2c;   //Main i2c bus (eeprom)
 
-    // Statistics
-    int iCtrMuDevice;
-    int iCtrMuLepton;
-    int iCtrMuExecute;
-    int iFailMuDevice;
-    int iFailMuLepton;
-    int iFailMuExecute;
+	// Statistics
+	int iCtrMuDevice;
+	int iCtrMuLepton;
+	int iCtrMuExecute;
+	int iFailMuDevice;
+	int iFailMuLepton;
+	int iFailMuExecute;
 } FVD_DEV_INFO, *PFVD_DEV_INFO;
 
 // Function prototypes to set up hardware specific items
@@ -78,6 +80,7 @@ void SetupMX6S(PFVD_DEV_INFO pDev);
 void SetupMX6Q(PFVD_DEV_INFO pDev);
 
 // Function prototypes for common FVD functions
+DWORD CheckFPGA(PFVD_DEV_INFO pDev);
 DWORD LoadFPGA(PFVD_DEV_INFO pDev, char* szFileName);
 PUCHAR getFPGAData(PFVD_DEV_INFO pDev, ULONG* size, char* out_revision);
 void freeFpgaData(void);

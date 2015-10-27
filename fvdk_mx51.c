@@ -54,7 +54,7 @@ static BOOL GetPinReadyMX51(void);
 static DWORD PutInProgrammingModeMX51(PFVD_DEV_INFO);
 
 static void BSPFvdPowerDownMX51(PFVD_DEV_INFO pDev);
-static void BSPFvdPowerUpMX51(PFVD_DEV_INFO pDev);
+static void BSPFvdPowerUpMX51(PFVD_DEV_INFO pDev, BOOL restart);
 
 // Local variables
 
@@ -200,7 +200,7 @@ DWORD PutInProgrammingModeMX51(PFVD_DEV_INFO pDev)
     return 1;
 }
 
-void BSPFvdPowerUpMX51(PFVD_DEV_INFO pDev)
+void BSPFvdPowerUpMX51(PFVD_DEV_INFO pDev, BOOL restart)
 {
 	gpio_set_value(FPGA_POWER_EN, 1);
 	msleep(50);

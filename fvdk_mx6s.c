@@ -64,7 +64,7 @@ static DWORD PutInProgrammingModeMX6S(PFVD_DEV_INFO);
 
 static void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev);
 static void BSPFvdPowerDownFPAMX6S(PFVD_DEV_INFO pDev);
-static void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev);
+static void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart);
 static void BSPFvdPowerUpFPAMX6S(PFVD_DEV_INFO pDev);
 
 // Local variables
@@ -189,7 +189,7 @@ DWORD PutInProgrammingModeMX6S(PFVD_DEV_INFO pDev)
     return 1;
 }
 
-void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev)
+void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart)
 {
 	gpio_set_value(FPGA_POWER_EN, 1);
 	msleep(50);

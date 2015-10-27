@@ -33,19 +33,21 @@
      
 // Definitions
 #define FPGA_CE			((5-1)*32 + 28)	// GPIO 5.28
-#define FPGA_CONF_DONE	((7-1)*32 + 13)	// roco <--> bb15 diff
+#define FPGA_CONF_DONE		((7-1)*32 + 13)	// roco <--> bb15 diff
 #define FPGA_CONFIG		((5-1)*32 + 25)
 #define FPGA_STATUS		((4-1)*32 +  5)	// roco <--> bb15 diff
 #define FPGA_READY		((3-1)*32 + 19)
-#define FPGA_POWER_EN	((6-1)*32 + 25)	// roco <--> bb15 diff
+#define FPGA_POWER_EN		((6-1)*32 + 25)	// roco <--> bb15 diff
 #define FPGA_POWER_EN_ROCO_A	((6-1)*32 + 19)	// roco <--> bb15 diff
-#define _4V0_POWER_EN	((6-1)*32 + 24)
-#define FPA_I2C_EN      ((6-1)*32 + 29)
-#define FPA_POWER_EN	((6-1)*32 + 30)
+#define _4V0_POWER_EN		((6-1)*32 + 24)
+#define FPA_I2C_EN      	((6-1)*32 + 29)
+#define FPA_POWER_EN		((6-1)*32 + 30)
 #define FPGA_IRQ_0		((3-1)*32 + 16)
-      
-#define RETAILMSG(a,b) if (a) pr_err  b
-    
+#define GPIO_SPI1_SCLK		((5-1)*32 + 22)
+#define GPIO_SPI1_MOSI		((5-1)*32 + 23)
+#define GPIO_SPI1_MISO		((5-1)*32 + 24)
+#define GPIO_SPI1_CS		((4-1)*32 + 10)
+
 // FPGA register 41 bits
 #define FPA_CLCK_ENABLE     0x01
 #define IRDM_PDWN_n         0x02
@@ -61,9 +63,9 @@ static BOOL GetPinDoneMX6Q(void);
 static BOOL GetPinStatusMX6Q(void);
 static BOOL GetPinReadyMX6Q(void);
 static DWORD PutInProgrammingModeMX6Q(PFVD_DEV_INFO);
- static void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev);
+static void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev);
 static void BSPFvdPowerDownFPAMX6Q(PFVD_DEV_INFO pDev);
-static void BSPFvdPowerUpMX6Q(PFVD_DEV_INFO pDev);
+static void BSPFvdPowerUpMX6Q(PFVD_DEV_INFO pDev, BOOL restart);
 static void BSPFvdPowerUpFPAMX6Q(PFVD_DEV_INFO pDev);
  
 // Local variables
@@ -82,7 +84,7 @@ void SetupMX6Q(PFVD_DEV_INFO pDev)
 	pDev->pBSPFvdPowerDown = BSPFvdPowerDownMX6Q;
 	pDev->pBSPFvdPowerDownFPA = BSPFvdPowerDownFPAMX6Q;
 	pDev->pBSPFvdPowerUpFPA = BSPFvdPowerUpFPAMX6Q;
-	 pDev->iSpiBus = 32766;	// SPI no = 0
+	pDev->iSpiBus = 32766;	// SPI no = 0
 	pDev->iSpiCountDivisor = 1;	// Count is no of bytes
 	pDev->iI2c = 3;		// Main i2c bus
 }
@@ -90,10 +92,10 @@ void SetupMX6Q(PFVD_DEV_INFO pDev)
 BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev) 
 {
 	int article, revision;
-	 GetMainboardVersion(pDev, &article, &revision);
-	 if (article == ROCO_ARTNO && revision == 1)
+	GetMainboardVersion(pDev, &article, &revision);
+	if (article == ROCO_ARTNO && revision == 1)
 		fpgaPower = FPGA_POWER_EN_ROCO_A;
-	 if (gpio_is_valid(FPGA_CE) == 0) {
+	if (gpio_is_valid(FPGA_CE) == 0) {
 		pr_err("FpgaCE can not be used\n");
 	} else {
 		gpio_request(FPGA_CE, "FpgaCE");
@@ -126,25 +128,24 @@ BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev)
 	} else {
 		gpio_request(fpgaPower, "FpgaPowerEn");
 	}
-	if (gpio_is_valid(FPA_POWER_EN) == 0)
-		 {
+	if (gpio_is_valid(FPA_POWER_EN) == 0) {
 		pr_err("FpaPowerEn can not be used\n");
 	} else {
 		gpio_request(FPA_POWER_EN, "FpaPowerEn");
 	}
-	 if (gpio_is_valid(FPA_I2C_EN) == 0) {
+	if (gpio_is_valid(FPA_I2C_EN) == 0) {
 		pr_err("FpaI2CEn can not be used\n");
 	} else {
 		gpio_request(FPA_I2C_EN, "FpaI2CEn");
 	}
-	 if (gpio_is_valid(_4V0_POWER_EN) == 0) {
+	if (gpio_is_valid(_4V0_POWER_EN) == 0) {
 		pr_err("4V0PowerEn can not be used\n");
 	} else {
 		gpio_request(_4V0_POWER_EN, "4V0En");
 	}
-	               
-	    //Pins already configured in bootloader
-	    gpio_direction_output(FPGA_CE, 0);
+
+	//Pins already configured in bootloader
+	gpio_direction_output(FPGA_CE, 0);
 	gpio_direction_output(FPGA_CONFIG, 1);
 	gpio_direction_output(fpgaPower, 1);	//Enable fpga power as default
 	gpio_direction_output(_4V0_POWER_EN, 1);
@@ -183,60 +184,93 @@ BOOL GetPinReadyMX6Q(void)
 DWORD PutInProgrammingModeMX6Q(PFVD_DEV_INFO pDev) 
 {
 	
-	    // Set idle state (probably already done)
-	    gpio_set_value(FPGA_CONFIG, 1);
+	// Set idle state (probably already done)
+	gpio_set_value(FPGA_CONFIG, 1);
 	msleep(1);
-	 
-	    // Activate programming (CONFIG  LOW)
-	    gpio_set_value(FPGA_CONFIG, 0);
+
+	// Activate programming (CONFIG  LOW)
+	gpio_set_value(FPGA_CONFIG, 0);
 	msleep(1);
-	 
-	    // Verify status
-	    if (GetPinStatusMX6Q())
-		 {
+
+	// Verify status
+	if (GetPinStatusMX6Q())
+	{
 		pr_err("FPGA: Status not initially low\n");
 		return 0;
-		}
+	}
 	if (GetPinDoneMX6Q())
-		 {
+	{
 		pr_err("FPGA: Conf_Done not initially low\n");
 		return 0;
-		}
-	 
-	    // Release config
-	    gpio_set_value(FPGA_CONFIG, 1);
+	}
+
+	// Release config
+	gpio_set_value(FPGA_CONFIG, 1);
 	msleep(1);
-	 
-	    // Verify status
-	    if (!GetPinStatusMX6Q())
-		 {
+
+	// Verify status
+	if (!GetPinStatusMX6Q())
+	{
 		pr_err("FPGA: Status not high when config released\n");
 		return 0;
-		}
-	 msleep(1);
+	}
+	msleep(1);
 	return 1;
 }
 
-void BSPFvdPowerUpMX6Q(PFVD_DEV_INFO pDev) 
+void BSPFvdPowerUpMX6Q(PFVD_DEV_INFO pDev, BOOL restart)
 {
 	gpio_set_value(fpgaPower, 1);
 	msleep(50);
 	gpio_set_value(FPGA_CE, 0);
 	gpio_set_value(FPGA_CONFIG, 1);
+
+	if (restart) {
+		int timeout = 100;
+
+		if (gpio_request(GPIO_SPI1_SCLK, "SPI1_MOSI"))
+			pr_err("SPI1_SCLK can not be requested\n");
+		else
+			gpio_direction_input(GPIO_SPI1_SCLK);
+		if (gpio_request(GPIO_SPI1_MOSI, "SPI1_MOSI"))
+			pr_err("SPI1_MOSI can not be requested\n");
+		else
+			gpio_direction_input(GPIO_SPI1_MOSI);
+		if (gpio_request(GPIO_SPI1_MISO, "SPI1_MISO"))
+			pr_err("SPI1_MISO can not be requested\n");
+		else
+			gpio_direction_input(GPIO_SPI1_MISO);
+		if (gpio_request(GPIO_SPI1_CS, "SPI1_CS"))
+			pr_err("SPI1_CS can not be requested\n");
+		else
+			gpio_direction_input(GPIO_SPI1_CS);
+
+		msleep(1);
+		gpio_set_value(FPGA_CONFIG, 0);
+		msleep(1);
+		gpio_set_value(FPGA_CONFIG, 1);
+
+		while (timeout--) {
+			msleep (10);
+			if (GetPinDoneMX6Q())
+				break;
+		}
+		pr_info("FVDK timeout MX6Q %d\n", timeout);
+
+		gpio_free(GPIO_SPI1_SCLK);
+		gpio_free(GPIO_SPI1_MOSI);
+		gpio_free(GPIO_SPI1_MISO);
+		gpio_free(GPIO_SPI1_CS);
+	}
 }
 
 void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev) 
 {
-	
-	    // This function should suspend power to the device.
-	    // It is useful only with devices that can power down under software control.
-	    gpio_set_value(FPA_POWER_EN, 0);
-	 
-	    // Disable FPGA
-	    gpio_set_value(FPGA_CE, 1);
+	// Disable FPGA
+	gpio_set_value(FPGA_CE, 1);
 	msleep(1);
 	
-//    gpio_set_value(fpgaPower, 0);
+	gpio_set_value(fpgaPower, 0);
 }  
 
 // Separate FPA power down
@@ -246,9 +280,11 @@ void BSPFvdPowerDownFPAMX6Q(PFVD_DEV_INFO pDev)
 	gpio_set_value(FPA_I2C_EN, 1);
 	gpio_set_value(_4V0_POWER_EN, 0);
 }
+
 void BSPFvdPowerUpFPAMX6Q(PFVD_DEV_INFO pDev) 
 {
 	gpio_set_value(FPA_POWER_EN, 1);
+	msleep(5);
 	gpio_set_value(FPA_I2C_EN, 0);
 	gpio_set_value(_4V0_POWER_EN, 1);
 } 

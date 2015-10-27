@@ -28,6 +28,7 @@
 #include <linux/mm.h>
 #include <linux/version.h>
 #include <linux/vmalloc.h>
+#include <linux/miscdevice.h>
 
 #define	OPCODE_NORM_READ_4B	0x13	/* Read data bytes (low frequency) */
 #define FLASH_SIZE 0x10000000 
@@ -153,7 +154,11 @@ static struct file_operations fvd_fops =
         .mmap = FVD_mmap,
 };
 
-
+static struct miscdevice fvdk_miscdev = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name  = "fvdk",
+	.fops  = &fvd_fops
+};
 
 static int FVD_mmap (struct file * filep, struct vm_area_struct * vma)
 {
@@ -169,118 +174,201 @@ static int FVD_mmap (struct file * filep, struct vm_area_struct * vma)
     return 0;
 }
 
+// static int fvdk_suspend(struct platform_device *pdev, pm_message_t state)
+static int fvdk_suspend(struct device *pdev)
+{
+	pr_info("Suspend FVDK driver\n");
 
+	// Power Down
+	gpDev->pBSPFvdPowerDownFPA(gpDev);
+	gpDev->pBSPFvdPowerDown(gpDev);
+	return 0;
+}
+
+static int fvdk_resume(struct device *pdev)
+{
+	int timeout;
+	int retval = 0;
+
+	pr_info("Resume FVDK driver\n");
+
+	// Power Up
+	gpDev->pBSPFvdPowerUp(gpDev, TRUE);
+
+	pr_info("FVDK will load FPGA\n");
+
+	// Load MAIN FPGA
+	if(system_is_roco()) {
+		gpDev->fpgaLoaded = FALSE;
+		return 0;
+	}
+
+	retval = LoadFPGA(gpDev, "");
+	if (retval != ERROR_SUCCESS)
+	{
+		pr_err ("fvdk_resume: LoadFPGA failed %d\n", retval);
+		return -1;
+	}
+
+	// Wait until FPGA loaded
+	timeout = 50;
+	while (timeout--) {
+		msleep (10);
+		if (gpDev->pGetPinReady() == 0)
+			break;
+	}
+
+	return 0;
+}
+
+static int fvdk_probe(struct platform_device *pdev)
+{
+	int ret;
+
+	pr_info("Probing FVDK driver\n");
+	ret = misc_register(&fvdk_miscdev);
+	if (ret) {
+		pr_err("Failed to register miscdev for FVDK driver\n");
+		return ret;
+	}
+
+	if (cpu_is_mx51())
+		SetupMX51(gpDev);
+	else if(cpu_is_imx6s())
+		SetupMX6S(gpDev);
+	else if(cpu_is_imx6q())
+		SetupMX6Q(gpDev);
+	else {
+		pr_err("FVD: Error: Unkown Hardware\n");
+		return -4;
+	}
+
+	// DDK not used as DLL to avoid compatibility issues between fvd.dll and OS image
+	if (!gpDev->pSetupGpioAccess(gpDev))
+	{
+		pr_err("Error setting up GPIO\n");
+		return -5;
+	}
+
+	/* Setup /proc read only file system entry. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+	gpDev->proc = proc_create_data("fvdk", 0, NULL, &fvd_proc_fops, gpDev);
+#else
+	gpDev->proc = create_proc_read_entry("fvdk", 0, NULL, FVD_procfs_read, gpDev);
+#endif
+	if (gpDev->proc == NULL) {
+		pr_err("failed to add proc fs entry\n");
+	}
+
+	sema_init(&gpDev->muDevice, 1);
+	sema_init(&gpDev->muLepton, 1);
+	sema_init(&gpDev->muExecute, 1);
+	sema_init(&gpDev->muStandby, 1);
+
+	return 0;
+}
+
+
+static int fvdk_remove(struct platform_device *pdev)
+{
+	pr_info("Removing FVDK driver\n");
+	misc_deregister(&fvdk_miscdev);
+
+	return 0;
+}
+
+static const struct dev_pm_ops fvdk_pm_ops = {
+	.suspend_late = fvdk_suspend,
+	.resume_early = fvdk_resume,
+};
+
+static struct platform_driver fvdk_driver = {
+	.probe      = fvdk_probe,
+	.remove     = fvdk_remove,
+	.driver     = {
+		.name   = "fvdk",
+		.owner  = THIS_MODULE,
+		.pm	 = &fvdk_pm_ops,
+	},
+};
 
 
 static int __init FVD_Init(void)
 {
-    int i;
+	int retval = -1;
 
-    pr_err("FVD_Init\n");
+	pr_info("FVD_Init\n");
 
-    // Check that we are not already initiated
-    if (gpDev) {
-    	pr_err("FVD already initialized\n");
-        return 0;
-    }
+	// Check that we are not already initiated
+	if (gpDev) {
+		pr_err("FVD already initialized\n");
+		return 0;
+	}
 
-    // Allocate (and zero-initiate) our control structure.
-    gpDev = (PFVD_DEV_INFO)kmalloc(sizeof(FVD_DEV_INFO), GFP_KERNEL);
-    if ( !gpDev ) {
-    	pr_err("Error allocating memory for pDev, FVD_Init failed\n");
-        return -2;
-    }
+	// Allocate (and zero-initiate) our control structure.
+	gpDev = (PFVD_DEV_INFO)kzalloc(sizeof(FVD_DEV_INFO), GFP_KERNEL);
+	if ( !gpDev ) {
+		pr_err("Error allocating memory for pDev, FVD_Init failed\n");
+		goto EXIT_OUT;
+	}
 
-    // Reset all data
-    memset (gpDev, 0, sizeof(*gpDev));
+	gpDev->pLinuxDevice = platform_device_alloc("fvdk", 1);
+	if (gpDev->pLinuxDevice == NULL) {
+		pr_err("flirdrv-fvdk: Error adding allocating device\n");
+		goto EXIT_OUT_PLATFORMALLOC;
+	}
 
-    // Register linux driver
-    alloc_chrdev_region(&gpDev->fvd_dev, 0, 1, "fvdk");
-    cdev_init(&gpDev->fvd_cdev, &fvd_fops);
-    gpDev->fvd_cdev.owner = THIS_MODULE;
-    gpDev->fvd_cdev.ops = &fvd_fops;
-    i = cdev_add(&gpDev->fvd_cdev, gpDev->fvd_dev, 1);
-    if (i)
-    {
-    	pr_err("Error adding device driver\n");
-        return -3;
-    }
-    gpDev->pLinuxDevice = platform_device_alloc("fvdk", 1);
-    if (gpDev->pLinuxDevice == NULL)
-    {
-    	pr_err("Error adding allocating device\n");
-        return -4;
-    }
-    if (cpu_is_mx51())
-    	SetupMX51(gpDev);
-    else if(cpu_is_imx6s())
-    	SetupMX6S(gpDev);
-    else if(cpu_is_imx6q())
-        SetupMX6Q(gpDev);
-    else
-       {pr_err("FVD: Error: Unkown Hardware\n");return -4;}
+	retval = platform_device_add(gpDev->pLinuxDevice);
+	if(retval) {
+		pr_err("flirdrv-fvdk: Error adding platform device\n");
+		goto EXIT_OUT_PLATFORMADD;
+	}
 
-
-    platform_device_add(gpDev->pLinuxDevice);
-	pr_err("FVD driver device id %d.%d added\n", MAJOR(gpDev->fvd_dev), MINOR(gpDev->fvd_dev));
-    gpDev->fvd_class = class_create(THIS_MODULE, "fvdk");
-    device_create(gpDev->fvd_class, NULL, gpDev->fvd_dev, NULL, "fvdk");
-
-    // DDK not used as DLL to avoid compatibility issues between fvd.dll and OS image
-    if (!gpDev->pSetupGpioAccess(gpDev))
-    {
-        kfree(gpDev);
-    	pr_err("Error setting up GPIO\n");
-        return -5;
-    }
-
-    /* Setup /proc read only file system entry. */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-    gpDev->proc = proc_create_data("fvdk", 0, NULL, &fvd_proc_fops, gpDev);
-#else
-    gpDev->proc = create_proc_read_entry("fvdk", 0, NULL, FVD_procfs_read, gpDev);
-#endif
-
-
-
-    if (gpDev->proc == NULL) {
-        pr_err("failed to add proc fs entry\n");
-    }
-
-    sema_init(&gpDev->muDevice, 1);
-    sema_init(&gpDev->muLepton, 1);
-    sema_init(&gpDev->muExecute, 1);
-
-	pr_err("FVD_Init completed\n");
-
-    return 0;
-}
-
-static void __devexit FVD_Deinit(void)
-{
-    pr_err("FVD_Deinit\n");
-
-    // make sure this is a valid context
-    // if the device is running, stop it
-    if (gpDev != NULL)
-    {
-        gpDev->pBSPFvdPowerDown(gpDev);
-        gpDev->pCleanupGpio(gpDev);
-        device_destroy(gpDev->fvd_class, gpDev->fvd_dev);
-        class_destroy(gpDev->fvd_class);
-        unregister_chrdev_region(gpDev->fvd_dev, 1);
-    	platform_device_unregister(gpDev->pLinuxDevice);
-        kfree(gpDev);
-        gpDev = NULL;
-        remove_proc_entry("fvdk",NULL);
-        if (gpBlob)
-        {
-            kfree(gpBlob);
-            gpBlob = NULL;
+	retval = platform_driver_register(&fvdk_driver);
+        if (retval < 0) {
+		pr_err("flirdrv-fvdk: Error adding platform driver\n");
+		goto EXIT_OUT_DRIVERADD;
         }
-    }
+
+	gpDev->fpgaLoaded = TRUE;
+
+	return retval;
+
+EXIT_OUT_DRIVERADD:
+	platform_device_unregister(gpDev->pLinuxDevice);
+EXIT_OUT_PLATFORMADD:
+	platform_device_put(gpDev->pLinuxDevice);
+EXIT_OUT_PLATFORMALLOC:
+	kfree(gpDev);
+EXIT_OUT:
+	return retval;
 }
 
+
+static void __exit FVD_Deinit(void)
+{
+	pr_info("FVD_Deinit\n");
+
+	// make sure this is a valid context
+	// if the device is running, stop it
+	if (gpDev != NULL)
+	{
+		gpDev->pBSPFvdPowerDown(gpDev);
+		gpDev->pCleanupGpio(gpDev);
+
+		platform_driver_unregister(&fvdk_driver);
+		platform_device_unregister(gpDev->pLinuxDevice);
+
+		kfree(gpDev);
+		gpDev = NULL;
+		remove_proc_entry("fvdk",NULL);
+		if (gpBlob)
+		{
+			kfree(gpBlob);
+			gpBlob = NULL;
+		}
+	}
+}
 
 /**
  *  FVD_Open
@@ -334,9 +422,9 @@ static int FVD_Open (struct inode *inode, struct file *filp)
 
     } else
     {
-        gpDev->pBSPFvdPowerUp(gpDev);
+        gpDev->pBSPFvdPowerUp(gpDev, FALSE);
 
-        pr_err("FVD will load FPGA\n");
+        pr_info("FVD will load FPGA\n");
 
         // Load MAIN FPGA
         dwStatus = LoadFPGA(gpDev, "");
@@ -377,7 +465,6 @@ static long FVD_IOControl(struct file *filep,
     tmp = kzalloc(_IOC_SIZE(cmd), GFP_KERNEL);
     if (_IOC_DIR(cmd) & _IOC_WRITE)
     {
-//		pr_err("Ioctl %X copy from user: %ld\n", cmd, _IOC_SIZE(cmd));
     	dwErr = copy_from_user(tmp, (void *)arg, _IOC_SIZE(cmd));
     	if (dwErr)
     		pr_err("FVD: Copy from user failed: %ld\n", dwErr);
@@ -385,7 +472,6 @@ static long FVD_IOControl(struct file *filep,
 
     if (dwErr == ERROR_SUCCESS)
     {
-//		pr_err("Ioctl %X\n", cmd);
     	dwErr = DoIOControl(gpDev, cmd, tmp, (PUCHAR)arg);
     	if (dwErr)
     		pr_err("FVD Ioctl %X failed: %ld\n", cmd, dwErr);
@@ -393,7 +479,6 @@ static long FVD_IOControl(struct file *filep,
 
     if ((dwErr == ERROR_SUCCESS) && (_IOC_DIR(cmd) & _IOC_READ))
     {
-//		pr_err("Ioctl %X copy to user: %ld\n", cmd, _IOC_SIZE(cmd));
     	dwErr = copy_to_user((void *)arg, tmp, _IOC_SIZE(cmd));
     	if (dwErr)
     		pr_err("FVD: Copy to user failed: %ld\n", dwErr);
@@ -415,7 +500,39 @@ DWORD DoIOControl(
                   PUCHAR pBuf,
                   PUCHAR pUserBuf)
 {
-    DWORD  dwErr = ERROR_INVALID_PARAMETER;
+	DWORD  dwErr = ERROR_INVALID_PARAMETER;
+
+	if (!gpDev->fpgaLoaded) {
+		dwErr = down_timeout(&gpDev->muStandby, msecs_to_jiffies(6000));
+		if (dwErr)
+			return dwErr;
+		if (!gpDev->fpgaLoaded) {
+			int timeout = 500;
+			while (timeout--) {
+				msleep (20);
+				if (gpDev->pGetPinDone())
+					break;
+			}
+			pr_info("FVDK timeout A %d\n", timeout);
+			dwErr = CheckFPGA(gpDev);
+			if (dwErr)
+				return dwErr;
+
+			// Wait until FPGA loaded
+			timeout = 50;
+			while (timeout--) {
+				msleep (10);
+				if (gpDev->pGetPinReady() == 0)
+					break;
+			}
+			pr_info("FVDK timeout B %d\n", timeout);
+			gpDev->fpgaLoaded = TRUE;
+
+			up(&gpDev->muStandby);
+		}
+		dwErr = ERROR_INVALID_PARAMETER;
+	}
+
 
     switch (Ioctl)
     {
@@ -425,7 +542,7 @@ DWORD DoIOControl(
         break;
 
     case IOCTL_FVDK_POWER_UP:
-        pDev->pBSPFvdPowerUp(pDev);
+        pDev->pBSPFvdPowerUp(pDev, FALSE);
         dwErr = ERROR_SUCCESS;
         break;
 
@@ -530,7 +647,7 @@ DWORD DoIOControl(
         break;
 
     default:
-        pr_err("FVDK: Ioctl %lX not supported\n", Ioctl);
+        pr_warning("FVDK: Ioctl %lX not supported\n", Ioctl);
         dwErr = ERROR_NOT_SUPPORTED;
         break;
     }
