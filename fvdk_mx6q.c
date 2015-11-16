@@ -257,6 +257,7 @@ void BSPFvdPowerUpMX6Q(PFVD_DEV_INFO pDev, BOOL restart)
 		}
 		pr_info("FVDK timeout MX6Q %d\n", timeout);
 
+		gpio_direction_output(GPIO_SPI1_CS,1);
 		gpio_free(GPIO_SPI1_SCLK);
 		gpio_free(GPIO_SPI1_MOSI);
 		gpio_free(GPIO_SPI1_MISO);
