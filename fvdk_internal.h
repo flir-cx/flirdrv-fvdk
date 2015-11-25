@@ -22,6 +22,7 @@
 #define __FVD_INTERNAL_H__
 
 #include <linux/proc_fs.h>
+#include <linux/regulator/consumer.h>
 
 #define FVD_MINOR_VERSION   0
 #define FVD_MAJOR_VERSION   1
@@ -53,6 +54,12 @@ typedef struct __FVD_DEV_INFO
 	void (*pBSPFvdPowerDown)(struct __FVD_DEV_INFO * pDev);
 	void (*pBSPFvdPowerDownFPA)(struct __FVD_DEV_INFO * pDev);
 	void (*pBSPFvdPowerUpFPA)(struct __FVD_DEV_INFO * pDev);
+
+    //Regulators
+	struct regulator *reg_detector;
+	struct regulator *reg_mems;
+	struct regulator *reg_4v0_fpa;
+	struct regulator *reg_3v15_fpa;
 
 	// Locks
 	struct semaphore            muDevice;

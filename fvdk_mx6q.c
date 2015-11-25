@@ -24,7 +24,8 @@
 #include "asm/io.h"
 #include <linux/platform_device.h>
 #include <linux/version.h>
-    
+#include <linux/regulator/consumer.h>
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 #include "../arch/arm/mach-imx/mx6.h"
 #else	/*  */
@@ -32,17 +33,14 @@
 #endif	/*  */
      
 // Definitions
-#define FPGA_CE			((5-1)*32 + 28)	// GPIO 5.28
-#define FPGA_CONF_DONE		((7-1)*32 + 13)	// roco <--> bb15 diff
-#define FPGA_CONFIG		((5-1)*32 + 25)
-#define FPGA_STATUS		((4-1)*32 +  5)	// roco <--> bb15 diff
-#define FPGA_READY		((3-1)*32 + 19)
-#define FPGA_POWER_EN		((6-1)*32 + 25)	// roco <--> bb15 diff
-#define FPGA_POWER_EN_ROCO_A	((6-1)*32 + 19)	// roco <--> bb15 diff
-#define _4V0_POWER_EN		((6-1)*32 + 24)
-#define FPA_I2C_EN      	((6-1)*32 + 29)
-#define FPA_POWER_EN		((6-1)*32 + 30)
-#define FPGA_IRQ_0		((3-1)*32 + 16)
+#define FPGA_CE             ((5-1)*32 + 28)	// GPIO 5.28
+#define FPGA_CONF_DONE		((7-1)*32 + 13)
+#define FPGA_CONFIG         ((5-1)*32 + 25)
+#define FPGA_STATUS         ((4-1)*32 +  5)
+#define FPGA_READY          ((3-1)*32 + 19)
+#define FPGA_POWER_EN		((6-1)*32 + 25)
+#define FPGA_POWER_EN_ROCO_A	((6-1)*32 + 19)
+#define FPGA_IRQ_0          ((3-1)*32 + 16)
 #define GPIO_SPI1_SCLK		((5-1)*32 + 22)
 #define GPIO_SPI1_MOSI		((5-1)*32 + 23)
 #define GPIO_SPI1_MISO		((5-1)*32 + 24)
@@ -67,9 +65,10 @@ static void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev);
 static void BSPFvdPowerDownFPAMX6Q(PFVD_DEV_INFO pDev);
 static void BSPFvdPowerUpMX6Q(PFVD_DEV_INFO pDev, BOOL restart);
 static void BSPFvdPowerUpFPAMX6Q(PFVD_DEV_INFO pDev);
- 
+
 // Local variables
 static u32 fpgaPower = FPGA_POWER_EN;
+static bool fpaIsEnabled = false;
 
 // Code
 void SetupMX6Q(PFVD_DEV_INFO pDev) 
@@ -92,6 +91,8 @@ void SetupMX6Q(PFVD_DEV_INFO pDev)
 BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev) 
 {
 	int article, revision;
+    struct device *dev = &pDev->pLinuxDevice->dev;
+
 	GetMainboardVersion(pDev, &article, &revision);
 	if (article == ROCO_ARTNO && revision == 1)
 		fpgaPower = FPGA_POWER_EN_ROCO_A;
@@ -128,29 +129,29 @@ BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev)
 	} else {
 		gpio_request(fpgaPower, "FpgaPowerEn");
 	}
-	if (gpio_is_valid(FPA_POWER_EN) == 0) {
-		pr_err("FpaPowerEn can not be used\n");
-	} else {
-		gpio_request(FPA_POWER_EN, "FpaPowerEn");
-	}
-	if (gpio_is_valid(FPA_I2C_EN) == 0) {
-		pr_err("FpaI2CEn can not be used\n");
-	} else {
-		gpio_request(FPA_I2C_EN, "FpaI2CEn");
-	}
-	if (gpio_is_valid(_4V0_POWER_EN) == 0) {
-		pr_err("4V0PowerEn can not be used\n");
-	} else {
-		gpio_request(_4V0_POWER_EN, "4V0En");
-	}
 
 	//Pins already configured in bootloader
 	gpio_direction_output(FPGA_CE, 0);
 	gpio_direction_output(FPGA_CONFIG, 1);
 	gpio_direction_output(fpgaPower, 1);	//Enable fpga power as default
-	gpio_direction_output(_4V0_POWER_EN, 1);
-	gpio_direction_output(FPA_POWER_EN, 1);	//Enable fpa i2c   as default
-	gpio_direction_output(FPA_I2C_EN, 0);	//Enable fpa power as default
+
+
+    pDev->reg_3v15_fpa = devm_regulator_get(dev, "3V15_fpa");
+    if(IS_ERR(pDev->reg_3v15_fpa))
+        dev_err(dev,"can't get regulator 3V15_fpa\n");
+
+    pDev->reg_4v0_fpa = devm_regulator_get(dev, "4V0_fpa");
+    if(IS_ERR(pDev->reg_4v0_fpa))
+        dev_err(dev,"can't get regulator 4V0_fpa");
+
+    pDev->reg_detector = devm_regulator_get(dev, "uat1k_detector");
+    if(IS_ERR(pDev->reg_detector))
+        dev_err(dev,"can't get regulator uat1k_detector");
+
+    pDev->reg_mems = devm_regulator_get(dev, "uat1k_mems");
+    if(IS_ERR(pDev->reg_mems))
+        dev_err(dev,"can't get regulator uat1k_mems");
+
 	return TRUE;
 }
 
@@ -162,8 +163,6 @@ void CleanupGpioMX6Q(PFVD_DEV_INFO pDev)
 	gpio_free(FPGA_STATUS);
 	gpio_free(FPGA_READY);
 	gpio_free(fpgaPower);
-	gpio_free(FPA_POWER_EN);
-	gpio_free(FPA_I2C_EN);
 }
 
 BOOL GetPinDoneMX6Q(void) 
@@ -277,15 +276,35 @@ void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev)
 // Separate FPA power down
 void BSPFvdPowerDownFPAMX6Q(PFVD_DEV_INFO pDev) 
 {
-	gpio_set_value(FPA_POWER_EN, 0);
-	gpio_set_value(FPA_I2C_EN, 1);
-	gpio_set_value(_4V0_POWER_EN, 0);
+	int ret;
+    if(!fpaIsEnabled)
+        return;
+    fpaIsEnabled = false;
+
+    ret = regulator_disable(pDev->reg_mems);
+    ret |= regulator_disable(pDev->reg_detector);
+    ret |= regulator_disable(pDev->reg_3v15_fpa);
+    ret |= regulator_disable(pDev->reg_4v0_fpa);
+
+    if(ret)
+        dev_err(&pDev->pLinuxDevice->dev,"can't disable fpa \n");
 }
 
 void BSPFvdPowerUpFPAMX6Q(PFVD_DEV_INFO pDev) 
 {
-	gpio_set_value(FPA_POWER_EN, 1);
+    int ret;
+    if(fpaIsEnabled)
+        return;
+    fpaIsEnabled = true;
+
+
+    ret = regulator_enable(pDev->reg_3v15_fpa);
+    ret |= regulator_enable(pDev->reg_4v0_fpa);
 	msleep(5);
-	gpio_set_value(FPA_I2C_EN, 0);
-	gpio_set_value(_4V0_POWER_EN, 1);
+    ret |= regulator_enable(pDev->reg_detector);
+    ret |= regulator_enable(pDev->reg_mems);
+
+    if(ret)
+        dev_err(&pDev->pLinuxDevice->dev,"can't enable fpa \n");
 } 
+
