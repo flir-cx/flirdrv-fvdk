@@ -27,9 +27,10 @@
 #include <linux/regulator/consumer.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-#include "../arch/arm/mach-imx/mx6.h"
+    #include "../arch/arm/mach-imx/mx6.h"
 #else	/*  */
-#include "mach/mx6.h"
+    #include "mach/mx6.h"
+    #define devm_regulator_get regulator_get
 #endif	/*  */
      
 // Definitions

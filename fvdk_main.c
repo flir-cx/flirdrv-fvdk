@@ -29,6 +29,7 @@
 #include <linux/version.h>
 #include <linux/vmalloc.h>
 #include <linux/miscdevice.h>
+#include <linux/uaccess.h>
 
 #define	OPCODE_NORM_READ_4B	0x13	/* Read data bytes (low frequency) */
 #define FLASH_SIZE 0x10000000 
@@ -37,20 +38,22 @@
 
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-#include "../arch/arm/mach-imx/hardware.h"
+    #include "../arch/arm/mach-imx/hardware.h"
 
-#ifndef __devexit
-#define __devexit
-#endif
+    #ifndef __devexit
+    #define __devexit
+    #endif
 
-#define cpu_is_imx6s   cpu_is_imx6dl
-#define system_is_roco cpu_is_imx6q
+    #define cpu_is_imx6s   cpu_is_imx6dl
+    #define system_is_roco cpu_is_imx6q
 
 #else  // LINUX_VERSION_CODE
 #include "mach/mx6.h"
     #define cpu_is_imx6s   cpu_is_mx6dl
     #define cpu_is_imx6q   cpu_is_mx6q
     #define system_is_roco cpu_is_imx6q
+    #define suspend_late suspend
+    #define resume_early resume
 #endif
 
 // Definitions
