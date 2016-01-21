@@ -46,20 +46,33 @@ typedef struct __FVD_DEV_INFO
 	// CPU specific function pointers
 	BOOL (*pSetupGpioAccess)(struct __FVD_DEV_INFO * pDev);
 	void (*pCleanupGpio)(struct __FVD_DEV_INFO * pDev);
-	BOOL (*pGetPinDone)(void);
-	BOOL (*pGetPinStatus)(void);
-	BOOL (*pGetPinReady)(void);
+	BOOL (*pGetPinDone)(struct __FVD_DEV_INFO * pDev);
+	BOOL (*pGetPinStatus)(struct __FVD_DEV_INFO * pDev);
+	BOOL (*pGetPinReady)(struct __FVD_DEV_INFO * pDev);
 	DWORD (*pPutInProgrammingMode)(struct __FVD_DEV_INFO * pDev);
 	void (*pBSPFvdPowerUp)(struct __FVD_DEV_INFO * pDev, BOOL restart);
 	void (*pBSPFvdPowerDown)(struct __FVD_DEV_INFO * pDev);
 	void (*pBSPFvdPowerDownFPA)(struct __FVD_DEV_INFO * pDev);
 	void (*pBSPFvdPowerUpFPA)(struct __FVD_DEV_INFO * pDev);
 
+    //GPIOs
+    int program_gpio;
+    int init_gpio;
+    int conf_done_gpio;
+    int ready_gpio;
+
+#ifdef CONFIG_OF
+    struct device_node * np;
+#endif
+
     //Regulators
 	struct regulator *reg_detector;
 	struct regulator *reg_mems;
 	struct regulator *reg_4v0_fpa;
 	struct regulator *reg_3v15_fpa;
+
+    //Configs
+    bool spi_flash;
 
 	// Locks
 	struct semaphore            muDevice;
@@ -85,6 +98,7 @@ typedef struct __FVD_DEV_INFO
 void SetupMX51(PFVD_DEV_INFO pDev);
 void SetupMX6S(PFVD_DEV_INFO pDev);
 void SetupMX6Q(PFVD_DEV_INFO pDev);
+void SetupMX6S_ec101(PFVD_DEV_INFO pDev);
 
 // Function prototypes for common FVD functions
 DWORD CheckFPGA(PFVD_DEV_INFO pDev);

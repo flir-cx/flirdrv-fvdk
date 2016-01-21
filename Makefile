@@ -21,6 +21,7 @@ EXTRA_CFLAGS = -I$(ALPHAREL)/SDK/FLIR/Include -DFVD_DEPRECIATED_OK=0
 	fvdk-objs += fvdk_mx6s.o
 	fvdk-objs += roco_header.o
         fvdk-objs += fvdk_mx6q.o
+        fvdk-objs += fvdk_mx6s_ec101.o
 	PWD := $(shell pwd)
 
 all: 

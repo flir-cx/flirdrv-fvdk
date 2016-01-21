@@ -57,9 +57,9 @@
 
 static BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev);
 static void CleanupGpioMX6S(PFVD_DEV_INFO pDev);
-static BOOL GetPinDoneMX6S(void);
-static BOOL GetPinStatusMX6S(void);
-static BOOL GetPinReadyMX6S(void);
+static BOOL GetPinDoneMX6S(PFVD_DEV_INFO pDev);
+static BOOL GetPinStatusMX6S(PFVD_DEV_INFO pDev);
+static BOOL GetPinReadyMX6S(PFVD_DEV_INFO pDev);
 static DWORD PutInProgrammingModeMX6S(PFVD_DEV_INFO);
 
 static void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev);
@@ -137,17 +137,17 @@ void CleanupGpioMX6S(PFVD_DEV_INFO pDev)
 	gpio_free(FPA_POWER_EN);
 }
 
-BOOL GetPinDoneMX6S(void)
+BOOL GetPinDoneMX6S(PFVD_DEV_INFO pDev)
 {
     return (gpio_get_value(FPGA_CONF_DONE) != 0);
 }
 
-BOOL GetPinStatusMX6S(void)
+BOOL GetPinStatusMX6S(PFVD_DEV_INFO pDev)
 {
     return (gpio_get_value(FPGA_STATUS) != 0);
 }
 
-BOOL GetPinReadyMX6S(void)
+BOOL GetPinReadyMX6S(PFVD_DEV_INFO pDev)
 {
     return (gpio_get_value(FPGA_READY) != 0);
 }
@@ -163,12 +163,12 @@ DWORD PutInProgrammingModeMX6S(PFVD_DEV_INFO pDev)
 	msleep(1);
 
     // Verify status
-    if (GetPinStatusMX6S())
+    if (GetPinStatusMX6S(pDev))
     {
         pr_err("FPGA: Status not initially low\n");
         return 0;
     }
-    if (GetPinDoneMX6S())
+    if (GetPinDoneMX6S(pDev))
     {
         pr_err("FPGA: Conf_Done not initially low\n");
         return 0;
@@ -179,7 +179,7 @@ DWORD PutInProgrammingModeMX6S(PFVD_DEV_INFO pDev)
 	msleep(1);
 
     // Verify status
-    if (! GetPinStatusMX6S())
+    if (! GetPinStatusMX6S(pDev))
     {
         pr_err("FPGA: Status not high when config released\n");
         return 0;

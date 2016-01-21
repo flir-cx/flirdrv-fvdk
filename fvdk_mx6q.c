@@ -58,9 +58,9 @@
 // Local prototypes
 static BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev);
 static void CleanupGpioMX6Q(PFVD_DEV_INFO pDev);
-static BOOL GetPinDoneMX6Q(void);
-static BOOL GetPinStatusMX6Q(void);
-static BOOL GetPinReadyMX6Q(void);
+static BOOL GetPinDoneMX6Q(PFVD_DEV_INFO pDev);
+static BOOL GetPinStatusMX6Q(PFVD_DEV_INFO pDev);
+static BOOL GetPinReadyMX6Q(PFVD_DEV_INFO pDev);
 static DWORD PutInProgrammingModeMX6Q(PFVD_DEV_INFO);
 static void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev);
 static void BSPFvdPowerDownFPAMX6Q(PFVD_DEV_INFO pDev);
@@ -87,6 +87,7 @@ void SetupMX6Q(PFVD_DEV_INFO pDev)
 	pDev->iSpiBus = 32766;	// SPI no = 0
 	pDev->iSpiCountDivisor = 1;	// Count is no of bytes
 	pDev->iI2c = 3;		// Main i2c bus
+	pDev->spi_flash = true;
 }
 
 BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev) 
@@ -166,17 +167,17 @@ void CleanupGpioMX6Q(PFVD_DEV_INFO pDev)
 	gpio_free(fpgaPower);
 }
 
-BOOL GetPinDoneMX6Q(void) 
+BOOL GetPinDoneMX6Q(PFVD_DEV_INFO pDev)
 {
 	return (gpio_get_value(FPGA_CONF_DONE) != 0);
 }
 
-BOOL GetPinStatusMX6Q(void)
+BOOL GetPinStatusMX6Q(PFVD_DEV_INFO pDev)
 {
 	return (gpio_get_value(FPGA_STATUS) != 0);
 }
 
-BOOL GetPinReadyMX6Q(void)
+BOOL GetPinReadyMX6Q(PFVD_DEV_INFO pDev)
 {
 	return (gpio_get_value(FPGA_READY) != 0);
 }
@@ -193,12 +194,12 @@ DWORD PutInProgrammingModeMX6Q(PFVD_DEV_INFO pDev)
 	msleep(1);
 
 	// Verify status
-	if (GetPinStatusMX6Q())
+	if (GetPinStatusMX6Q(pDev))
 	{
 		pr_err("FPGA: Status not initially low\n");
 		return 0;
 	}
-	if (GetPinDoneMX6Q())
+	if (GetPinDoneMX6Q(pDev))
 	{
 		pr_err("FPGA: Conf_Done not initially low\n");
 		return 0;
@@ -209,7 +210,7 @@ DWORD PutInProgrammingModeMX6Q(PFVD_DEV_INFO pDev)
 	msleep(1);
 
 	// Verify status
-	if (!GetPinStatusMX6Q())
+	if (!GetPinStatusMX6Q(pDev))
 	{
 		pr_err("FPGA: Status not high when config released\n");
 		return 0;
@@ -252,7 +253,7 @@ void BSPFvdPowerUpMX6Q(PFVD_DEV_INFO pDev, BOOL restart)
 
 		while (timeout--) {
 			msleep (10);
-			if (GetPinDoneMX6Q())
+			if (GetPinDoneMX6Q(pDev))
 				break;
 		}
 		pr_info("FVDK timeout MX6Q %d\n", timeout);

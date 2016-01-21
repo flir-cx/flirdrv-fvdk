@@ -45,13 +45,11 @@
     #endif
 
     #define cpu_is_imx6s   cpu_is_imx6dl
-    #define system_is_roco cpu_is_imx6q
 
 #else  // LINUX_VERSION_CODE
 #include "mach/mx6.h"
     #define cpu_is_imx6s   cpu_is_mx6dl
     #define cpu_is_imx6q   cpu_is_mx6q
-    #define system_is_roco cpu_is_imx6q
     #define suspend_late suspend
     #define resume_early resume
 #endif
@@ -201,7 +199,7 @@ static int fvdk_resume(struct device *pdev)
 	pr_info("FVDK will load FPGA\n");
 
 	// Load MAIN FPGA
-	if(system_is_roco()) {
+	if(gpDev->spi_flash) {
 		gpDev->fpgaLoaded = FALSE;
 		return 0;
 	}
@@ -217,7 +215,7 @@ static int fvdk_resume(struct device *pdev)
 	timeout = 50;
 	while (timeout--) {
 		msleep (10);
-		if (gpDev->pGetPinReady() == 0)
+		if (gpDev->pGetPinReady(gpDev) == 0)
 			break;
 	}
 
@@ -234,8 +232,13 @@ static int fvdk_probe(struct platform_device *pdev)
 		pr_err("Failed to register miscdev for FVDK driver\n");
 		return ret;
 	}
-
-	if (cpu_is_mx51())
+#if CONFIG_OF
+    gpDev->np = of_find_compatible_node(NULL, NULL, "flir,fvd");
+	if(gpDev->np)
+        SetupMX6S_ec101(gpDev);
+    else
+#endif
+    if (cpu_is_mx51())
 		SetupMX51(gpDev);
 	else if(cpu_is_imx6s())
 		SetupMX6S(gpDev);
@@ -394,7 +397,7 @@ static int FVD_Open (struct inode *inode, struct file *filp)
 
     down(&gpDev->muDevice);
 
-    if(system_is_roco()){
+    if(gpDev->spi_flash){
 	    // For ROCO the FPGA is configured through an SPI NOR Flash memory,
 	    // The Norflash is flashed from userspace application
 	    // Thus, no loading of the FPGA is needed from this driver
@@ -442,7 +445,7 @@ static int FVD_Open (struct inode *inode, struct file *filp)
         while (timeout--)
         {
             msleep (10);
-            if (gpDev->pGetPinReady() == 0)
+            if (gpDev->pGetPinReady(gpDev) == 0)
                 break;
         }
         init = TRUE;
@@ -513,7 +516,7 @@ DWORD DoIOControl(
 			int timeout = 500;
 			while (timeout--) {
 				msleep (20);
-				if (gpDev->pGetPinDone())
+				if (gpDev->pGetPinDone(gpDev))
 					break;
 			}
 			pr_info("FVDK timeout A %d\n", timeout);
@@ -525,7 +528,7 @@ DWORD DoIOControl(
 			timeout = 50;
 			while (timeout--) {
 				msleep (10);
-				if (gpDev->pGetPinReady() == 0)
+				if (gpDev->pGetPinReady(gpDev) == 0)
 					break;
 			}
 			pr_info("FVDK timeout B %d\n", timeout);

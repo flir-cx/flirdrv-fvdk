@@ -171,9 +171,9 @@ DWORD CheckFPGA(PFVD_DEV_INFO pDev)
 {
     DWORD res = ERROR_SUCCESS;
 
-    if(0 == pDev->pGetPinDone())
+    if(0 == pDev->pGetPinDone(pDev))
     {
-        if(0 == pDev->pGetPinStatus())
+        if(0 == pDev->pGetPinStatus(pDev))
             res = ERROR_NO_INIT_OK;
         else
             res = ERROR_NO_CONFIG_DONE;
@@ -211,7 +211,7 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char* szFileName)
         return ERROR_IO_DEVICE;
     }
 
-    if (pDev->pGetPinDone())
+    if (pDev->pGetPinDone(pDev))
     {
         pr_err ("LoadFPGA: Fpga has already been programmed in uboot");
         goto done;

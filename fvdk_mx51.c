@@ -48,9 +48,9 @@
 
 static BOOL SetupGpioAccessMX51(PFVD_DEV_INFO pDev);
 static void CleanupGpioMX51(PFVD_DEV_INFO pDev);
-static BOOL GetPinDoneMX51(void);
-static BOOL GetPinStatusMX51(void);
-static BOOL GetPinReadyMX51(void);
+static BOOL GetPinDoneMX51(PFVD_DEV_INFO pDev);
+static BOOL GetPinStatusMX51(PFVD_DEV_INFO pDev);
+static BOOL GetPinReadyMX51(PFVD_DEV_INFO pDev);
 static DWORD PutInProgrammingModeMX51(PFVD_DEV_INFO);
 
 static void BSPFvdPowerDownMX51(PFVD_DEV_INFO pDev);
@@ -148,17 +148,17 @@ void CleanupGpioMX51(PFVD_DEV_INFO pDev)
 	gpio_free(FPGA_IRQ_0);
 }
 
-BOOL GetPinDoneMX51(void)
+BOOL GetPinDoneMX51(PFVD_DEV_INFO pDev)
 {
     return (gpio_get_value(FPGA_CONF_DONE) != 0);
 }
 
-BOOL GetPinStatusMX51(void)
+BOOL GetPinStatusMX51(PFVD_DEV_INFO pDev)
 {
     return (gpio_get_value(FPGA_STATUS) != 0);
 }
 
-BOOL GetPinReadyMX51(void)
+BOOL GetPinReadyMX51(PFVD_DEV_INFO pDev)
 {
     return (gpio_get_value(FPGA_READY) != 0);
 }
@@ -174,12 +174,12 @@ DWORD PutInProgrammingModeMX51(PFVD_DEV_INFO pDev)
 	msleep(1);
 
     // Verify status
-    if (GetPinStatusMX51())
+    if (GetPinStatusMX51(pDev))
     {
         pr_err("FPGA: Status not initially low\n");
         return 0;
     }
-    if (GetPinDoneMX51())
+    if (GetPinDoneMX51(pDev))
     {
         pr_err("FPGA: Conf_Done not initially low\n");
         return 0;
@@ -190,7 +190,7 @@ DWORD PutInProgrammingModeMX51(PFVD_DEV_INFO pDev)
 	msleep(1);
 
     // Verify status
-    if (! GetPinStatusMX51())
+    if (! GetPinStatusMX51(pDev))
     {
         pr_err("FPGA: Status not high when config released\n");
         return 0;
