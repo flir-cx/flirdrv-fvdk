@@ -279,6 +279,10 @@ void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev)
 void BSPFvdPowerDownFPAMX6Q(PFVD_DEV_INFO pDev) 
 {
 	int ret;
+	if( IS_ERR(pDev->reg_mems)     || IS_ERR(pDev->reg_detector) ||
+	    IS_ERR(pDev->reg_3v15_fpa) || IS_ERR(pDev->reg_4v0_fpa))
+		return;
+
     if(!fpaIsEnabled)
         return;
     fpaIsEnabled = false;
@@ -295,10 +299,13 @@ void BSPFvdPowerDownFPAMX6Q(PFVD_DEV_INFO pDev)
 void BSPFvdPowerUpFPAMX6Q(PFVD_DEV_INFO pDev) 
 {
     int ret;
+	if( IS_ERR(pDev->reg_mems)     || IS_ERR(pDev->reg_detector) ||
+	    IS_ERR(pDev->reg_3v15_fpa) || IS_ERR(pDev->reg_4v0_fpa))
+		return;
+
     if(fpaIsEnabled)
         return;
     fpaIsEnabled = true;
-
 
     ret = regulator_enable(pDev->reg_3v15_fpa);
     ret |= regulator_enable(pDev->reg_4v0_fpa);
