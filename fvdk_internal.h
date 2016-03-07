@@ -70,6 +70,7 @@ typedef struct __FVD_DEV_INFO
 	struct regulator *reg_mems;
 	struct regulator *reg_4v0_fpa;
 	struct regulator *reg_3v15_fpa;
+	struct regulator *reg_fpa_i2c;
 
     //Configs
     bool spi_flash;

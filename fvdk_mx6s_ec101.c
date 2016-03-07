@@ -54,7 +54,7 @@ static void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart);
 static void BSPFvdPowerUpFPAMX6S(PFVD_DEV_INFO pDev);
 
 // Local variables
-
+static bool fpaIsEnabled = false;
 
 // Code
 void SetupMX6S_ec101(PFVD_DEV_INFO pDev)
@@ -117,6 +117,14 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 		}
 	}
 
+	pDev->reg_4v0_fpa = devm_regulator_get(dev, "4V0_fpa");
+    if(IS_ERR(pDev->reg_4v0_fpa))
+        dev_err(dev,"can't get regulator 4V0_fpa");
+
+	pDev->reg_fpa_i2c = devm_regulator_get(dev, "fpa_i2c");
+    if(IS_ERR(pDev->reg_fpa_i2c))
+        dev_err(dev,"can't get regulator fpa_i2c\n");
+
     of_node_put(np);
 #endif
 
@@ -160,14 +168,37 @@ void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
 
 }  
 
-
 void BSPFvdPowerDownFPAMX6S(PFVD_DEV_INFO pDev)
 {
+	int ret;
+	if( IS_ERR(pDev->reg_fpa_i2c)   || IS_ERR(pDev->reg_4v0_fpa))
+		return;
 
+    if(!fpaIsEnabled)
+        return;
+    fpaIsEnabled = false;
+
+    ret = regulator_disable(pDev->reg_fpa_i2c);
+    ret |= regulator_disable(pDev->reg_4v0_fpa);
+
+    if(ret)
+        dev_err(&pDev->pLinuxDevice->dev,"can't disable fpa \n");
 }
 
 void BSPFvdPowerUpFPAMX6S(PFVD_DEV_INFO pDev)
 {
+	int ret;
+	if( IS_ERR(pDev->reg_fpa_i2c)   || IS_ERR(pDev->reg_4v0_fpa))
+		return;
 
-} 
+    if(fpaIsEnabled)
+        return;
+    fpaIsEnabled = true;
+
+    ret = regulator_enable(pDev->reg_4v0_fpa);
+    ret |= regulator_enable(pDev->reg_fpa_i2c);
+
+    if(ret)
+        dev_err(&pDev->pLinuxDevice->dev,"can't enable fpa \n");
+}
 
