@@ -232,7 +232,7 @@ static int fvdk_probe(struct platform_device *pdev)
 		pr_err("Failed to register miscdev for FVDK driver\n");
 		return ret;
 	}
-#if CONFIG_OF
+#ifdef CONFIG_OF
     gpDev->np = of_find_compatible_node(NULL, NULL, "flir,fvd");
 	if(gpDev->np)
         SetupMX6S_ec101(gpDev);
@@ -405,6 +405,8 @@ static int FVD_Open (struct inode *inode, struct file *filp)
 	    // the header data from the fpga.bin file is stored 64 kbit from the end of the 
 	    // memory, 2**28 - 2**16 = 256Mbit - 64 kBit
 	    unsigned char *rxbuf;
+
+		gpDev->pBSPFvdPowerUp(gpDev, FALSE);
 
 	    rxbuf = vmalloc(sizeof (unsigned char) * HEADER_LENGTH);
 	    if(!rxbuf){

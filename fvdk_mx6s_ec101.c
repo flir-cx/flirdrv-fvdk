@@ -55,6 +55,7 @@ static void BSPFvdPowerUpFPAMX6S(PFVD_DEV_INFO pDev);
 
 // Local variables
 static bool fpaIsEnabled = false;
+static bool fpgaIsEnabled = false;
 
 // Code
 void SetupMX6S_ec101(PFVD_DEV_INFO pDev)
@@ -69,17 +70,19 @@ void SetupMX6S_ec101(PFVD_DEV_INFO pDev)
 	pDev->pBSPFvdPowerDown = BSPFvdPowerDownMX6S;
 	pDev->pBSPFvdPowerDownFPA = BSPFvdPowerDownFPAMX6S;
 	pDev->pBSPFvdPowerUpFPA = BSPFvdPowerUpFPAMX6S;
-	pDev->iI2c = 3;		// Main i2c bus
+	pDev->iI2c = 2;		// Main i2c bus
 	pDev->spi_flash = true;
 }
 
 
 BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 {
-   #ifdef CONFIG_OF
+	#ifdef CONFIG_OF
     struct device *dev = &pDev->pLinuxDevice->dev;
     struct device_node *np = pDev->np;
     int ret;
+	int article, revision;
+	GetMainboardVersion(pDev, &article, &revision);
 
     pDev->program_gpio = of_get_named_gpio(np, "fpga-program-gpio", 0);
 	if (gpio_is_valid(pDev->program_gpio)) {
@@ -116,7 +119,7 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 			dev_err(dev, "unable to get FPGA ready gpio\n");
 		}
 	}
-
+/* FPA regulators */
 	pDev->reg_4v0_fpa = devm_regulator_get(dev, "4V0_fpa");
     if(IS_ERR(pDev->reg_4v0_fpa))
         dev_err(dev,"can't get regulator 4V0_fpa");
@@ -124,6 +127,40 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 	pDev->reg_fpa_i2c = devm_regulator_get(dev, "fpa_i2c");
     if(IS_ERR(pDev->reg_fpa_i2c))
         dev_err(dev,"can't get regulator fpa_i2c\n");
+
+/* FPGA regulators */
+	pDev->reg_1v0_fpga = devm_regulator_get(dev, "DA9063_BPRO");
+    if(IS_ERR(pDev->reg_1v0_fpga))
+        dev_err(dev,"can't get regulator DA9063_BPRO");
+
+	pDev->reg_1v2_fpga = devm_regulator_get(dev, "DA9063_CORE_SW");
+    if(IS_ERR(pDev->reg_1v2_fpga))
+        dev_err(dev,"can't get regulator DA9063_CORE_SW");
+
+	pDev->reg_1v8_fpga = devm_regulator_get(dev, "DA9063_PERI_SW");
+    if(IS_ERR(pDev->reg_1v8_fpga))
+        dev_err(dev,"can't get regulator DA9063_PERI_SW");
+
+	if(article == EC101_ARTNO && revision == 3) //revC
+	{
+		pDev->reg_2v5_fpga = devm_regulator_get(dev, "DA9063_BMEM");
+		if(IS_ERR(pDev->reg_2v5_fpga))
+			dev_err(dev,"can't get regulator DA9063_BMEM");
+
+		pDev->reg_3v15_fpga = devm_regulator_get(dev, "DA9063_LDO10");
+		if(IS_ERR(pDev->reg_3v15_fpga))
+			dev_err(dev,"can't get regulator DA9063_LDO10");
+	}
+	else
+	{
+		pDev->reg_2v5_fpga = devm_regulator_get(dev, "DA9063_LDO10");
+		if(IS_ERR(pDev->reg_2v5_fpga))
+			dev_err(dev,"can't get regulator DA9063_LDO10");
+
+		pDev->reg_3v15_fpga = devm_regulator_get(dev, "DA9063_LDO8");
+		if(IS_ERR(pDev->reg_3v15_fpga))
+			dev_err(dev,"can't get regulator DA9063_LDO8");
+	}
 
     of_node_put(np);
 #endif
@@ -159,13 +196,45 @@ DWORD PutInProgrammingModeMX6S(PFVD_DEV_INFO pDev)
 
 void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart)
 {
+	int ret;
+	if( IS_ERR(pDev->reg_1v0_fpga)   || IS_ERR(pDev->reg_1v2_fpga) ||
+		IS_ERR(pDev->reg_1v8_fpga)   || IS_ERR(pDev->reg_2v5_fpga) || IS_ERR(pDev->reg_3v15_fpga)  )
+		return;
 
+    if(fpgaIsEnabled)
+        return;
+    fpgaIsEnabled = true;
+
+	ret = regulator_enable(pDev->reg_1v0_fpga);
+	ret |= regulator_enable(pDev->reg_1v8_fpga);
+	ret |= regulator_enable(pDev->reg_1v2_fpga);
+	ret |= regulator_enable(pDev->reg_2v5_fpga);
+	ret |= regulator_enable(pDev->reg_3v15_fpga);
+
+    if(ret)
+        dev_err(&pDev->pLinuxDevice->dev,"can't enable fpga \n");
 }
 
 void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
 {
+	int ret;
 	// Disable FPGA
+	if( IS_ERR(pDev->reg_1v0_fpga)   || IS_ERR(pDev->reg_1v2_fpga) ||
+		IS_ERR(pDev->reg_1v8_fpga)   || IS_ERR(pDev->reg_2v5_fpga) || IS_ERR(pDev->reg_3v15_fpga)  )
+		return;
 
+    if(!fpgaIsEnabled)
+        return;
+    fpgaIsEnabled = false;
+
+	ret = regulator_disable(pDev->reg_3v15_fpga);
+	ret |= regulator_disable(pDev->reg_2v5_fpga);
+	ret |= regulator_disable(pDev->reg_1v2_fpga);
+	ret |= regulator_disable(pDev->reg_1v8_fpga);
+	ret |= regulator_disable(pDev->reg_1v0_fpga);
+
+    if(ret)
+        dev_err(&pDev->pLinuxDevice->dev,"can't disable fpga \n");
 }  
 
 void BSPFvdPowerDownFPAMX6S(PFVD_DEV_INFO pDev)

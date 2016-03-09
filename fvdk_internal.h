@@ -72,6 +72,12 @@ typedef struct __FVD_DEV_INFO
 	struct regulator *reg_3v15_fpa;
 	struct regulator *reg_fpa_i2c;
 
+	struct regulator *reg_1v0_fpga;
+	struct regulator *reg_1v2_fpga;
+	struct regulator *reg_1v8_fpga;
+	struct regulator *reg_2v5_fpga;
+	struct regulator *reg_3v15_fpga;
+
     //Configs
     bool spi_flash;
 
@@ -112,6 +118,7 @@ BOOL GetMainboardVersion(PFVD_DEV_INFO pDev, int *article, int* revision);
 #define 	FVD_BSP_ASBB	    1  // Astra + Nettan
 
 #define ROCO_ARTNO			198752 //T198752 ROCO  mainboard article no (Rocky)
+#define EC101_ARTNO			199051 //T199051 ec101  mainboard article no (Evander)
 
 enum locks { LNONE, LDRV, LEXEC, LLEPT };
 
