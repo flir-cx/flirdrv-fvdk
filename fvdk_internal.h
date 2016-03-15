@@ -60,6 +60,10 @@ typedef struct __FVD_DEV_INFO
     int init_gpio;
     int conf_done_gpio;
     int ready_gpio;
+	int spi_sclk_gpio;
+	int spi_mosi_gpio;
+	int spi_miso_gpio;
+	int spi_cs_gpio;
 
 #ifdef CONFIG_OF
     struct device_node * np;

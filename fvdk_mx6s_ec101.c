@@ -38,9 +38,7 @@
     #include "mach/mx6.h"
     #define devm_regulator_get regulator_get
 #endif	/*  */
-     
-
-    
+         
 // Local prototypes
 static BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev);
 static void CleanupGpioMX6S(PFVD_DEV_INFO pDev);
@@ -52,6 +50,8 @@ static void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev);
 static void BSPFvdPowerDownFPAMX6S(PFVD_DEV_INFO pDev);
 static void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart);
 static void BSPFvdPowerUpFPAMX6S(PFVD_DEV_INFO pDev);
+static void enable_fpga_power(PFVD_DEV_INFO pDev);
+static void reload_fpga(PFVD_DEV_INFO pDev);
 
 // Local variables
 static bool fpaIsEnabled = false;
@@ -119,6 +119,13 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 			dev_err(dev, "unable to get FPGA ready gpio\n");
 		}
 	}
+
+/*SPI bus shared with fpga*/
+	pDev->spi_sclk_gpio = of_get_named_gpio(np, "spi-sclk-gpio", 0);
+	pDev->spi_mosi_gpio = of_get_named_gpio(np, "spi-mosi-gpio", 0);
+	pDev->spi_miso_gpio = of_get_named_gpio(np, "spi-miso-gpio", 0);
+	pDev->spi_cs_gpio = of_get_named_gpio(np, "spi-cs-gpio", 0);
+
 /* FPA regulators */
 	pDev->reg_4v0_fpa = devm_regulator_get(dev, "4V0_fpa");
     if(IS_ERR(pDev->reg_4v0_fpa))
@@ -170,7 +177,7 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 
 void CleanupGpioMX6S(PFVD_DEV_INFO pDev)
 {
-
+	//devm does the cleanup
 }
 
 BOOL GetPinDoneMX6S(PFVD_DEV_INFO pDev)
@@ -195,6 +202,61 @@ DWORD PutInProgrammingModeMX6S(PFVD_DEV_INFO pDev)
 }
 
 void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart)
+{
+	enable_fpga_power(pDev);
+
+	if(restart)
+		reload_fpga(pDev);
+
+}
+
+static void reload_fpga(PFVD_DEV_INFO pDev)
+{
+
+	int timeout = 100;
+    struct device *dev = &pDev->pLinuxDevice->dev;
+
+	if (gpio_request(pDev->spi_sclk_gpio, "SPI1_SCLK"))
+		dev_err(dev,"SPI1_SCLK can not be requested\n");
+	else
+		gpio_direction_input(pDev->spi_sclk_gpio);
+	if (gpio_request(pDev->spi_mosi_gpio, "SPI1_MOSI"))
+		dev_err(dev,"SPI1_MOSI can not be requested\n");
+	else
+		gpio_direction_input(pDev->spi_mosi_gpio);
+	if (gpio_request(pDev->spi_miso_gpio, "SPI1_MISO"))
+		dev_err(dev,"SPI1_MISO can not be requested\n");
+	else
+		gpio_direction_input(pDev->spi_miso_gpio);
+	if (gpio_request(pDev->spi_cs_gpio, "SPI1_CS"))
+		dev_err(dev,"SPI1_CS can not be requested\n");
+	else
+		gpio_direction_input(pDev->spi_cs_gpio);
+
+	msleep(1);
+	gpio_set_value(pDev->program_gpio, 0);
+	gpio_set_value(pDev->init_gpio, 0);
+	msleep(1);
+	gpio_set_value(pDev->program_gpio, 1);
+	gpio_set_value(pDev->init_gpio, 1);
+
+	while (timeout--) {
+		msleep (10);
+		if (GetPinDoneMX6S(pDev))
+			break;
+	}
+	dev_info(dev,"FVDK timeout MX6S %d\n", timeout);
+
+	gpio_direction_output(pDev->spi_cs_gpio,1);
+	gpio_free(pDev->spi_sclk_gpio);
+	gpio_free(pDev->spi_mosi_gpio);
+	gpio_free(pDev->spi_miso_gpio);
+	gpio_free(pDev->spi_cs_gpio);
+}
+
+
+
+static void enable_fpga_power(PFVD_DEV_INFO pDev)
 {
 	int ret;
 	if( IS_ERR(pDev->reg_1v0_fpga)   || IS_ERR(pDev->reg_1v2_fpga) ||
