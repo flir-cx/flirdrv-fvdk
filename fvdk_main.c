@@ -631,29 +631,40 @@ DWORD DoIOControl(
                 up(&gpDev->muLepton);
                 break;
             }
+            dwErr = ERROR_SUCCESS;
             switch (lock)
             {
             case LNONE:
-                dwErr = ERROR_SUCCESS;
                 break;
             case LDRV:
-                dwErr = down_timeout(&gpDev->muDevice, msecs_to_jiffies(lock_timeout));
+                if (lock_timeout)
+                    dwErr = down_timeout(&gpDev->muDevice, msecs_to_jiffies(lock_timeout));
+                else
+                    down(&gpDev->muDevice);
                 pDev->iCtrMuDevice++;
                 if (dwErr)
                     pDev->iFailMuDevice++;
                 break;
             case LEXEC:
-                dwErr = down_timeout(&gpDev->muExecute, msecs_to_jiffies(lock_timeout));
-                pDev->iCtrMuLepton++;
-                if (dwErr)
-                    pDev->iFailMuLepton++;
-                break;
-            case LLEPT:
-                dwErr = down_timeout(&gpDev->muLepton, msecs_to_jiffies(lock_timeout));
+                if (lock_timeout)
+                    dwErr = down_timeout(&gpDev->muExecute, msecs_to_jiffies(lock_timeout));
+                else
+                    down(&gpDev->muExecute);
                 pDev->iCtrMuExecute++;
                 if (dwErr)
                     pDev->iFailMuExecute++;
                 break;
+            case LLEPT:
+                if (lock_timeout)
+                    dwErr = down_timeout(&gpDev->muLepton, msecs_to_jiffies(lock_timeout));
+                else
+                    down(&gpDev->muLepton);
+                pDev->iCtrMuLepton++;
+                if (dwErr)
+                    pDev->iFailMuLepton++;
+                break;
+            default:
+                dwErr = ERROR_INVALID_PARAMETER;
             }
             if (dwErr)
                 pr_err("Lock failed %d %d %d\n", unlock, lock, (int)dwErr);
