@@ -75,6 +75,12 @@ static PFVD_DEV_INFO gpDev;
 static char * gpBlob;
 static int blobsize;
 
+// Parameters
+
+static int lock_timeout = 3000;
+module_param(lock_timeout, int, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(lock_timeout, "Mutex timeout in ms");
+
 // Code
 
 
@@ -631,19 +637,19 @@ DWORD DoIOControl(
                 dwErr = ERROR_SUCCESS;
                 break;
             case LDRV:
-                dwErr = down_timeout(&gpDev->muDevice, msecs_to_jiffies(3000));
+                dwErr = down_timeout(&gpDev->muDevice, msecs_to_jiffies(lock_timeout));
                 pDev->iCtrMuDevice++;
                 if (dwErr)
                     pDev->iFailMuDevice++;
                 break;
             case LEXEC:
-                dwErr = down_timeout(&gpDev->muExecute, msecs_to_jiffies(3000));
+                dwErr = down_timeout(&gpDev->muExecute, msecs_to_jiffies(lock_timeout));
                 pDev->iCtrMuLepton++;
                 if (dwErr)
                     pDev->iFailMuLepton++;
                 break;
             case LLEPT:
-                dwErr = down_timeout(&gpDev->muLepton, msecs_to_jiffies(3000));
+                dwErr = down_timeout(&gpDev->muLepton, msecs_to_jiffies(lock_timeout));
                 pDev->iCtrMuExecute++;
                 if (dwErr)
                     pDev->iFailMuExecute++;
