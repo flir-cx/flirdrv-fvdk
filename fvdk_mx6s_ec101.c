@@ -214,7 +214,7 @@ static void reload_fpga(PFVD_DEV_INFO pDev)
 {
 
 	int timeout = 100;
-    struct device *dev = &pDev->pLinuxDevice->dev;
+	struct device *dev = &pDev->pLinuxDevice->dev;
 
 	if (gpio_request(pDev->spi_sclk_gpio, "SPI1_SCLK"))
 		dev_err(dev,"SPI1_SCLK can not be requested\n");
@@ -228,10 +228,6 @@ static void reload_fpga(PFVD_DEV_INFO pDev)
 		dev_err(dev,"SPI1_MISO can not be requested\n");
 	else
 		gpio_direction_input(pDev->spi_miso_gpio);
-	if (gpio_request(pDev->spi_cs_gpio, "SPI1_CS"))
-		dev_err(dev,"SPI1_CS can not be requested\n");
-	else
-		gpio_direction_input(pDev->spi_cs_gpio);
 
 	msleep(1);
 	gpio_set_value(pDev->program_gpio, 0);
@@ -263,9 +259,12 @@ static void enable_fpga_power(PFVD_DEV_INFO pDev)
 		IS_ERR(pDev->reg_1v8_fpga)   || IS_ERR(pDev->reg_2v5_fpga) || IS_ERR(pDev->reg_3v15_fpga)  )
 		return;
 
-    if(fpgaIsEnabled)
-        return;
-    fpgaIsEnabled = true;
+	if(fpgaIsEnabled)
+		return;
+	fpgaIsEnabled = true;
+
+	gpio_set_value(pDev->program_gpio, 1);
+	gpio_set_value(pDev->init_gpio, 1);
 
 	ret = regulator_enable(pDev->reg_1v0_fpga);
 	ret |= regulator_enable(pDev->reg_1v8_fpga);
@@ -273,8 +272,8 @@ static void enable_fpga_power(PFVD_DEV_INFO pDev)
 	ret |= regulator_enable(pDev->reg_2v5_fpga);
 	ret |= regulator_enable(pDev->reg_3v15_fpga);
 
-    if(ret)
-        dev_err(&pDev->pLinuxDevice->dev,"can't enable fpga \n");
+	if(ret)
+		dev_err(&pDev->pLinuxDevice->dev,"can't enable fpga \n");
 }
 
 void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
@@ -285,9 +284,9 @@ void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
 		IS_ERR(pDev->reg_1v8_fpga)   || IS_ERR(pDev->reg_2v5_fpga) || IS_ERR(pDev->reg_3v15_fpga)  )
 		return;
 
-    if(!fpgaIsEnabled)
-        return;
-    fpgaIsEnabled = false;
+	if(!fpgaIsEnabled)
+		return;
+	fpgaIsEnabled = false;
 
 	ret = regulator_disable(pDev->reg_3v15_fpga);
 	ret |= regulator_disable(pDev->reg_2v5_fpga);
@@ -295,25 +294,34 @@ void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
 	ret |= regulator_disable(pDev->reg_1v8_fpga);
 	ret |= regulator_disable(pDev->reg_1v0_fpga);
 
-    if(ret)
-        dev_err(&pDev->pLinuxDevice->dev,"can't disable fpga \n");
+	gpio_set_value(pDev->program_gpio, 0);
+	gpio_set_value(pDev->init_gpio, 0);
+
+	if (gpio_request(pDev->spi_cs_gpio, "SPI1_CS"))
+		dev_err(&pDev->pLinuxDevice->dev,"SPI1_CS can not be requested\n");
+	else
+		gpio_direction_input(pDev->spi_cs_gpio);
+
+	if(ret)
+		dev_err(&pDev->pLinuxDevice->dev,"can't disable fpga \n");
 }  
 
 void BSPFvdPowerDownFPAMX6S(PFVD_DEV_INFO pDev)
 {
 	int ret;
-	if( IS_ERR(pDev->reg_fpa_i2c)   || IS_ERR(pDev->reg_4v0_fpa))
+
+	if( IS_ERR(pDev->reg_fpa_i2c) || IS_ERR(pDev->reg_4v0_fpa))
 		return;
 
-    if(!fpaIsEnabled)
-        return;
-    fpaIsEnabled = false;
+	if(!fpaIsEnabled)
+		return;
+	fpaIsEnabled = false;
 
-    ret = regulator_disable(pDev->reg_fpa_i2c);
-    ret |= regulator_disable(pDev->reg_4v0_fpa);
+	ret = regulator_disable(pDev->reg_fpa_i2c);
+	ret |= regulator_disable(pDev->reg_4v0_fpa);
 
-    if(ret)
-        dev_err(&pDev->pLinuxDevice->dev,"can't disable fpa \n");
+	if(ret)
+		dev_err(&pDev->pLinuxDevice->dev,"can't disable fpa \n");
 }
 
 void BSPFvdPowerUpFPAMX6S(PFVD_DEV_INFO pDev)
@@ -322,14 +330,14 @@ void BSPFvdPowerUpFPAMX6S(PFVD_DEV_INFO pDev)
 	if( IS_ERR(pDev->reg_fpa_i2c)   || IS_ERR(pDev->reg_4v0_fpa))
 		return;
 
-    if(fpaIsEnabled)
-        return;
-    fpaIsEnabled = true;
+	if(fpaIsEnabled)
+		return;
+	fpaIsEnabled = true;
 
-    ret = regulator_enable(pDev->reg_4v0_fpa);
-    ret |= regulator_enable(pDev->reg_fpa_i2c);
+	ret = regulator_enable(pDev->reg_4v0_fpa);
+	ret |= regulator_enable(pDev->reg_fpa_i2c);
 
-    if(ret)
-        dev_err(&pDev->pLinuxDevice->dev,"can't enable fpa \n");
+	if(ret)
+		dev_err(&pDev->pLinuxDevice->dev,"can't enable fpa \n");
 }
 
