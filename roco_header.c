@@ -13,7 +13,6 @@
 #include "roco_header.h"
 #include <linux/spi/spi.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 int of_dev_node_match(struct device *dev, void *data)
 {
         return dev->of_node == data;
@@ -31,8 +30,9 @@ struct spi_device * get_spi_device(const char *ofname)
 	struct spi_device *spidev = NULL;
 	struct device_node *node=NULL;
 	struct device * device;
-
+#ifdef CONFIG_OF
 	node=of_find_node_by_name(0, ofname);
+#endif
 	if(! node){
 		pr_err("Could not find node %s\n", ofname);
 		return NULL;
@@ -239,4 +239,3 @@ END:
 }
 
 
-#endif
