@@ -169,6 +169,13 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 			dev_err(dev,"can't get regulator DA9063_LDO8");
 	}
 
+	if (!GetPinDoneMX6S(pDev))
+	{
+		dev_err(dev,"U-boot FPGA load failed");
+		gpio_set_value(pDev->program_gpio, 0);
+		gpio_set_value(pDev->init_gpio, 0);
+	}
+
     of_node_put(np);
 #endif
 
