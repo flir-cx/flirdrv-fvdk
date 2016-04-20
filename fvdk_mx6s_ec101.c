@@ -270,9 +270,6 @@ static void enable_fpga_power(PFVD_DEV_INFO pDev)
 		return;
 	fpgaIsEnabled = true;
 
-	gpio_set_value(pDev->program_gpio, 1);
-	gpio_set_value(pDev->init_gpio, 1);
-
 	ret = regulator_enable(pDev->reg_1v0_fpga);
 	ret |= regulator_enable(pDev->reg_1v8_fpga);
 	ret |= regulator_enable(pDev->reg_1v2_fpga);
