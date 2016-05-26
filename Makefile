@@ -12,7 +12,7 @@ ifneq ($(KERNEL_PATH),)
        KERNEL_SRC = $(KERNEL_PATH)
 endif
 
-EXTRA_CFLAGS = -I$(ALPHAREL)/SDK/FLIR/Include -DFVD_DEPRECIATED_OK=0
+EXTRA_CFLAGS = -I$(ALPHAREL)/SDK/FLIR/Include -DFVD_DEPRECIATED_OK=0 -Werror
 
 	obj-m := fvdk.o
 	fvdk-objs += fvdk_main.o
