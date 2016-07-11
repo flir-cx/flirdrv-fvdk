@@ -221,7 +221,7 @@ static int fvdk_resume(struct device *pdev)
 	timeout = 50;
 	while (timeout--) {
 		msleep (10);
-		if (gpDev->pGetPinReady(gpDev))
+		if (gpDev->pGetPinReady(gpDev) == 0)
 			break;
 	}
 
@@ -453,7 +453,7 @@ static int FVD_Open (struct inode *inode, struct file *filp)
         while (timeout--)
         {
             msleep (10);
-            if (gpDev->pGetPinReady(gpDev))
+            if (gpDev->pGetPinReady(gpDev) == 0)
                 break;
         }
         init = TRUE;
@@ -537,7 +537,7 @@ DWORD DoIOControl(
 			timeout = 50;
 			while (timeout--) {
 				msleep (10);
-				if (gpDev->pGetPinReady(gpDev))
+				if (gpDev->pGetPinReady(gpDev) == 0)
 					break;
 			}
 			if (timeout < 40)
