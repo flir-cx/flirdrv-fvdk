@@ -184,7 +184,7 @@ static int FVD_mmap (struct file * filep, struct vm_area_struct * vma)
 // static int fvdk_suspend(struct platform_device *pdev, pm_message_t state)
 static int fvdk_suspend(struct device *pdev)
 {
-	pr_info("Suspend FVDK driver\n");
+	pr_debug("Suspend FVDK driver\n");
 
 	// Power Down
 	gpDev->pBSPFvdPowerDownFPA(gpDev);
@@ -197,12 +197,12 @@ static int fvdk_resume(struct device *pdev)
 	int timeout;
 	int retval = 0;
 
-	pr_info("Resume FVDK driver\n");
+	pr_debug("Resume FVDK driver\n");
 
 	// Power Up
 	gpDev->pBSPFvdPowerUp(gpDev, TRUE);
 
-	pr_info("FVDK will load FPGA\n");
+	pr_debug("FVDK will load FPGA\n");
 
 	// Load MAIN FPGA
 	if(gpDev->spi_flash) {
@@ -221,7 +221,7 @@ static int fvdk_resume(struct device *pdev)
 	timeout = 50;
 	while (timeout--) {
 		msleep (10);
-		if (gpDev->pGetPinReady(gpDev) == 0)
+		if (gpDev->pGetPinReady(gpDev))
 			break;
 	}
 
@@ -232,7 +232,7 @@ static int fvdk_probe(struct platform_device *pdev)
 {
 	int ret;
 
-	pr_info("Probing FVDK driver\n");
+	pr_debug("Probing FVDK driver\n");
 	ret = misc_register(&fvdk_miscdev);
 	if (ret) {
 		pr_err("Failed to register miscdev for FVDK driver\n");
@@ -309,7 +309,7 @@ static int __init FVD_Init(void)
 {
 	int retval = -1;
 
-	pr_info("FVD_Init\n");
+	pr_debug("FVD_Init\n");
 
 	// Check that we are not already initiated
 	if (gpDev) {
@@ -453,7 +453,7 @@ static int FVD_Open (struct inode *inode, struct file *filp)
         while (timeout--)
         {
             msleep (10);
-            if (gpDev->pGetPinReady(gpDev) == 0)
+            if (gpDev->pGetPinReady(gpDev))
                 break;
         }
         init = TRUE;
@@ -523,23 +523,25 @@ DWORD DoIOControl(
 		if (!gpDev->fpgaLoaded) {
 			int timeout = 500;
 			while (timeout--) {
-				msleep (20);
+				msleep (10);
 				if (gpDev->pGetPinDone(gpDev))
 					break;
 			}
-			pr_info("FVDK timeout A %d\n", timeout);
+			if (timeout < 400)
+				pr_info("FVDK conf done timeout %d\n", timeout);
 			dwErr = CheckFPGA(gpDev);
 			if (dwErr)
 				return dwErr;
 
-			// Wait until FPGA loaded
+			// Wait until FPGA ready
 			timeout = 50;
 			while (timeout--) {
 				msleep (10);
-				if (gpDev->pGetPinReady(gpDev) == 0)
+				if (gpDev->pGetPinReady(gpDev))
 					break;
 			}
-			pr_info("FVDK timeout B %d\n", timeout);
+			if (timeout < 40)
+				pr_info("FVDK ready pin timeout %d\n", timeout);
 			gpDev->fpgaLoaded = TRUE;
 
 			up(&gpDev->muStandby);

@@ -244,11 +244,12 @@ static void reload_fpga(PFVD_DEV_INFO pDev)
 	gpio_set_value(pDev->init_gpio, 1);
 
 	while (timeout--) {
-		msleep (10);
+		msleep (5);
 		if (GetPinDoneMX6S(pDev))
 			break;
 	}
-	dev_info(dev,"FVDK timeout MX6S %d\n", timeout);
+	msleep (5);
+	dev_info(dev,"FPGA loaded in %d ms\n", (100 - timeout) * 5);
 
 	gpio_direction_output(pDev->spi_cs_gpio,1);
 	gpio_free(pDev->spi_sclk_gpio);
