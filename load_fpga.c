@@ -81,7 +81,7 @@ BOOL GetMainboardVersion(PFVD_DEV_INFO pDev, int *article, int* revision)
         {
             sscanf(HWrev.article, "T%d", &savedArticle);
             sscanf(HWrev.revision, "%d", &savedRevision);
-            pr_err("FVD: Mainboard article %d revision %d\n", savedArticle, savedRevision);
+            pr_info("FVD: Mainboard article %d revision %d\n", savedArticle, savedRevision);
         }
         else
         {
