@@ -68,6 +68,8 @@ static DWORD DoIOControl(PFVD_DEV_INFO pDev,
                          PUCHAR pUserBuf);
 static int FVD_mmap (struct file * filep,
                      struct vm_area_struct * vma);
+static int fvdk_suspend(struct device *pdev);
+static int fvdk_resume(struct device *pdev);
 
 // Local variables
 static PFVD_DEV_INFO gpDev;
@@ -152,6 +154,45 @@ static int FVD_procfs_read(char *page, char **start, off_t offset,
 }
 #endif
 
+
+static ssize_t do_suspend(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	unsigned long val;
+	if (kstrtoul(buf, 0, &val) < 0)
+		return -EINVAL;
+
+	fvdk_suspend(dev);
+	return count;
+}
+
+static ssize_t do_resume(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	unsigned long val;
+	if (kstrtoul(buf, 0, &val) < 0)
+		return -EINVAL;
+
+	fvdk_resume(dev);
+	return count;
+}
+
+
+
+static DEVICE_ATTR(suspend, S_IWUSR  , NULL, do_suspend);
+static DEVICE_ATTR(resume, S_IWUSR  , NULL, do_resume);
+
+static struct attribute *fvd_attrs[] = {
+	&dev_attr_resume.attr,
+	&dev_attr_suspend.attr,
+	NULL
+};
+
+static const struct attribute_group fvd_groups = {
+	.attrs	= fvd_attrs,
+};
 
 static struct file_operations fvd_fops =
 {
@@ -239,12 +280,12 @@ static int fvdk_probe(struct platform_device *pdev)
 		return ret;
 	}
 #ifdef CONFIG_OF
-    gpDev->np = of_find_compatible_node(NULL, NULL, "flir,fvd");
-	if(gpDev->np)
-        SetupMX6S_ec101(gpDev);
-    else
+	gpDev->pLinuxDevice->dev.of_node  = of_find_compatible_node(NULL, NULL, "flir,fvd");
+	if(gpDev->pLinuxDevice->dev.of_node)
+		SetupMX6S_ec101(gpDev);
+	else
 #endif
-    if (cpu_is_mx51())
+	if (cpu_is_mx51())
 		SetupMX51(gpDev);
 	else if(cpu_is_imx6s())
 		SetupMX6S(gpDev);
@@ -271,7 +312,12 @@ static int fvdk_probe(struct platform_device *pdev)
 	if (gpDev->proc == NULL) {
 		pr_err("failed to add proc fs entry\n");
 	}
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+	ret = sysfs_create_group(&pdev->dev.kobj, &fvd_groups);
+	if (ret) {
+		pr_err("failed to add sys fs entry\n");
+	}
+#endif
 	sema_init(&gpDev->muDevice, 1);
 	sema_init(&gpDev->muLepton, 1);
 	sema_init(&gpDev->muExecute, 1);
