@@ -82,6 +82,11 @@ typedef struct __FVD_DEV_INFO
 	struct regulator *reg_2v5_fpga;
 	struct regulator *reg_3v15_fpga;
 
+    // Pinmux
+	struct pinctrl          *pinctrl;
+	struct pinctrl_state    *pins_default;
+	struct pinctrl_state    *pins_idle;
+
     //Configs
     bool spi_flash;
 

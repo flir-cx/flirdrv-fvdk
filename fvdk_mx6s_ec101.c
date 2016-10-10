@@ -37,6 +37,11 @@
 #else	/*  */
     #include "mach/mx6.h"
     #define devm_regulator_get regulator_get
+static inline int pinctrl_select_state(struct pinctrl *p,
+				       struct pinctrl_state *s)
+{
+	return 0;
+}
 #endif	/*  */
          
 // Local prototypes
@@ -78,9 +83,9 @@ void SetupMX6S_ec101(PFVD_DEV_INFO pDev)
 BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 {
 	#ifdef CONFIG_OF
-    struct device *dev = &pDev->pLinuxDevice->dev;
-    struct device_node *np = pDev->np;
-    int ret;
+	struct device *dev = &pDev->pLinuxDevice->dev;
+	struct device_node *np = dev->of_node;
+	int ret;
 	int article, revision;
 	GetMainboardVersion(pDev, &article, &revision);
 
@@ -176,7 +181,19 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 		gpio_set_value(pDev->init_gpio, 0);
 	}
 
-    of_node_put(np);
+	pDev->pinctrl = devm_pinctrl_get(dev);
+	if(IS_ERR(pDev->pinctrl))
+		dev_err(dev,"can't get pinctrl");
+
+	pDev->pins_default = pinctrl_lookup_state(pDev->pinctrl, "spi-default");
+	if(IS_ERR(pDev->pins_default))
+		dev_err(dev,"can't get default pins %p %d", pDev->pinctrl, (int)(pDev->pins_default));
+
+	pDev->pins_idle = pinctrl_lookup_state(pDev->pinctrl, "spi-idle");
+	if(IS_ERR(pDev->pins_idle))
+		dev_err(dev,"can't get idle pins %p %d", pDev->pinctrl, (int)(pDev->pins_idle));
+
+	of_node_put(np);
 #endif
 
 	return TRUE;
@@ -223,6 +240,10 @@ static void reload_fpga(PFVD_DEV_INFO pDev)
 	int timeout = 100;
 	struct device *dev = &pDev->pLinuxDevice->dev;
 
+	pinctrl_select_state(pDev->pinctrl, pDev->pins_idle);
+	//gpio requested in spi-imx
+	gpio_direction_input(pDev->spi_cs_gpio);
+
 	if (gpio_request(pDev->spi_sclk_gpio, "SPI1_SCLK"))
 		dev_err(dev,"SPI1_SCLK can not be requested\n");
 	else
@@ -252,10 +273,11 @@ static void reload_fpga(PFVD_DEV_INFO pDev)
 	dev_info(dev,"FPGA loaded in %d ms\n", (100 - timeout) * 5);
 
 	gpio_direction_output(pDev->spi_cs_gpio,1);
+	// Set SPI as SPI
+	pinctrl_select_state(pDev->pinctrl, pDev->pins_default);
 	gpio_free(pDev->spi_sclk_gpio);
 	gpio_free(pDev->spi_mosi_gpio);
 	gpio_free(pDev->spi_miso_gpio);
-	gpio_free(pDev->spi_cs_gpio);
 }
 
 
@@ -270,8 +292,9 @@ static void enable_fpga_power(PFVD_DEV_INFO pDev)
 	if(fpgaIsEnabled)
 		return;
 	fpgaIsEnabled = true;
+	dev_dbg(&pDev->pLinuxDevice->dev,"Fpga power enable \n");
 
-	ret = regulator_enable(pDev->reg_1v0_fpga);
+	ret  = regulator_enable(pDev->reg_1v0_fpga);
 	ret |= regulator_enable(pDev->reg_1v8_fpga);
 	ret |= regulator_enable(pDev->reg_1v2_fpga);
 	ret |= regulator_enable(pDev->reg_2v5_fpga);
@@ -292,8 +315,9 @@ void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
 	if(!fpgaIsEnabled)
 		return;
 	fpgaIsEnabled = false;
+	dev_dbg(&pDev->pLinuxDevice->dev,"Fpga power disable \n");
 
-	ret = regulator_disable(pDev->reg_3v15_fpga);
+	ret  = regulator_disable(pDev->reg_3v15_fpga);
 	ret |= regulator_disable(pDev->reg_2v5_fpga);
 	ret |= regulator_disable(pDev->reg_1v2_fpga);
 	ret |= regulator_disable(pDev->reg_1v8_fpga);
@@ -301,11 +325,7 @@ void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
 
 	gpio_set_value(pDev->program_gpio, 0);
 	gpio_set_value(pDev->init_gpio, 0);
-
-	if (gpio_request(pDev->spi_cs_gpio, "SPI1_CS"))
-		dev_err(&pDev->pLinuxDevice->dev,"SPI1_CS can not be requested\n");
-	else
-		gpio_direction_input(pDev->spi_cs_gpio);
+	gpio_direction_input(pDev->spi_cs_gpio);
 
 	if(ret)
 		dev_err(&pDev->pLinuxDevice->dev,"can't disable fpga \n");
@@ -321,6 +341,7 @@ void BSPFvdPowerDownFPAMX6S(PFVD_DEV_INFO pDev)
 	if(!fpaIsEnabled)
 		return;
 	fpaIsEnabled = false;
+	dev_dbg(&pDev->pLinuxDevice->dev,"FPA power disable \n");
 
 	ret = regulator_disable(pDev->reg_fpa_i2c);
 	ret |= regulator_disable(pDev->reg_4v0_fpa);
@@ -338,6 +359,7 @@ void BSPFvdPowerUpFPAMX6S(PFVD_DEV_INFO pDev)
 	if(fpaIsEnabled)
 		return;
 	fpaIsEnabled = true;
+	dev_dbg(&pDev->pLinuxDevice->dev,"FPA power enable \n");
 
 	ret = regulator_enable(pDev->reg_4v0_fpa);
 	ret |= regulator_enable(pDev->reg_fpa_i2c);
