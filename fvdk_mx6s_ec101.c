@@ -327,6 +327,8 @@ void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
 	gpio_set_value(pDev->init_gpio, 0);
 	gpio_direction_input(pDev->spi_cs_gpio);
 
+	pinctrl_select_state(pDev->pinctrl, pDev->pins_idle);
+
 	if(ret)
 		dev_err(&pDev->pLinuxDevice->dev,"can't disable fpga \n");
 }  
