@@ -281,7 +281,7 @@ static int fvdk_probe(struct platform_device *pdev)
 	}
 #ifdef CONFIG_OF
 	gpDev->pLinuxDevice->dev.of_node  = of_find_compatible_node(NULL, NULL, "flir,fvd");
-	if(gpDev->pLinuxDevice->dev.of_node)
+	if(of_machine_is_compatible("fsl,imx6dl-ec101"))
 		SetupMX6S_ec101(gpDev);
 	else
 #endif
