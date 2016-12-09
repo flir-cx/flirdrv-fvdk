@@ -270,7 +270,15 @@ static void reload_fpga(PFVD_DEV_INFO pDev)
 			break;
 	}
 	msleep (5);
-	dev_info(dev,"FPGA loaded in %d ms\n", (100 - timeout) * 5);
+
+	if (!GetPinDoneMX6S(pDev))
+	{
+		dev_err(dev,"FPGA load failed");
+		gpio_set_value(pDev->program_gpio, 0);
+		gpio_set_value(pDev->init_gpio, 0);
+	}
+	else
+		dev_info(dev,"FPGA loaded in %d ms\n", (100 - timeout) * 5);
 
 	gpio_direction_output(pDev->spi_cs_gpio,1);
 	// Set SPI as SPI
