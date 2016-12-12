@@ -193,6 +193,9 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 	if(IS_ERR(pDev->pins_idle))
 		dev_err(dev,"can't get idle pins %p %d", pDev->pinctrl, (int)(pDev->pins_idle));
 
+	//fpga power already on, but need to sync regulator_enable
+	enable_fpga_power(pDev);
+
 	of_node_put(np);
 #endif
 
