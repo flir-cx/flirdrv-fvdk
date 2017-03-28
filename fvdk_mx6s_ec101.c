@@ -92,7 +92,7 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
     pDev->program_gpio = of_get_named_gpio(np, "fpga-program-gpio", 0);
 	if (gpio_is_valid(pDev->program_gpio)) {
 		ret = devm_gpio_request_one(dev, pDev->program_gpio,
-					    GPIOF_OUT_INIT_HIGH, "FPGA program");
+					    GPIOF_IN, "FPGA program");
 		if (ret) {
 			dev_err(dev, "unable to get FPGA program gpio\n");
 		}
@@ -101,7 +101,7 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
     pDev->init_gpio = of_get_named_gpio(np, "fpga-init-gpio", 0);
 	if (gpio_is_valid(pDev->init_gpio)) {
 		ret = devm_gpio_request_one(dev, pDev->init_gpio,
-					    GPIOF_OUT_INIT_HIGH, "FPGA init");
+					    GPIOF_IN, "FPGA init");
 		if (ret) {
 			dev_err(dev, "unable to get FPGA init gpio\n");
 		}
@@ -177,8 +177,8 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 	if (!GetPinDoneMX6S(pDev))
 	{
 		dev_err(dev,"U-boot FPGA load failed");
-		gpio_set_value(pDev->program_gpio, 0);
-		gpio_set_value(pDev->init_gpio, 0);
+		gpio_direction_output(pDev->program_gpio, 0);
+		gpio_direction_output(pDev->init_gpio,0);
 	}
 
 	pDev->pinctrl = devm_pinctrl_get(dev);
@@ -261,11 +261,8 @@ static void reload_fpga(PFVD_DEV_INFO pDev)
 		gpio_direction_input(pDev->spi_miso_gpio);
 
 	msleep(1);
-	gpio_set_value(pDev->program_gpio, 0);
-	gpio_set_value(pDev->init_gpio, 0);
-	msleep(1);
-	gpio_set_value(pDev->program_gpio, 1);
-	gpio_set_value(pDev->init_gpio, 1);
+	gpio_direction_input(pDev->program_gpio);
+	gpio_direction_input(pDev->init_gpio);
 
 	while (timeout--) {
 		msleep (5);
@@ -277,8 +274,8 @@ static void reload_fpga(PFVD_DEV_INFO pDev)
 	if (!GetPinDoneMX6S(pDev))
 	{
 		dev_err(dev,"FPGA load failed");
-		gpio_set_value(pDev->program_gpio, 0);
-		gpio_set_value(pDev->init_gpio, 0);
+		gpio_direction_output(pDev->program_gpio, 0);
+		gpio_direction_output(pDev->init_gpio,0);
 	}
 	else
 		dev_info(dev,"FPGA loaded in %d ms\n", (100 - timeout) * 5);
@@ -334,8 +331,8 @@ void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
 	ret |= regulator_disable(pDev->reg_1v8_fpga);
 	ret |= regulator_disable(pDev->reg_1v0_fpga);
 
-	gpio_set_value(pDev->program_gpio, 0);
-	gpio_set_value(pDev->init_gpio, 0);
+	gpio_direction_input(pDev->program_gpio);
+	gpio_direction_output(pDev->init_gpio,0);
 	gpio_direction_input(pDev->spi_cs_gpio);
 
 	pinctrl_select_state(pDev->pinctrl, pDev->pins_idle);
