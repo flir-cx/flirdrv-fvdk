@@ -31,11 +31,6 @@
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
 
-#define	OPCODE_NORM_READ_4B	0x13	/* Read data bytes (low frequency) */
-#define FLASH_SIZE 0x10000000 
-#define HEADER_LENGTH  65536 
-#define HEADER_START_ADDRESS (FLASH_SIZE - HEADER_LENGTH)
-
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
     #include "../arch/arm/mach-imx/hardware.h"
@@ -283,6 +278,8 @@ static int fvdk_probe(struct platform_device *pdev)
 	gpDev->pLinuxDevice->dev.of_node  = of_find_compatible_node(NULL, NULL, "flir,fvd");
 	if(of_machine_is_compatible("fsl,imx6dl-ec101"))
 		SetupMX6S_ec101(gpDev);
+	else if(of_machine_is_compatible("fsl,imx6dl-ec501"))
+		SetupMX6S_ec501(gpDev);
 	else
 #endif
 	if (cpu_is_mx51())

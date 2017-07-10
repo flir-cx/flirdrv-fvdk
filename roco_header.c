@@ -11,79 +11,16 @@
 #include "flir_kernel_os.h"
 #include "fpga.h"
 #include "roco_header.h"
-#include <linux/spi/spi.h>
+#include <linux/mtd/mtd.h>
 
-int of_dev_node_match(struct device *dev, void *data)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
+int mtd_read(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen,
+	     u_char *buf)
 {
-        return dev->of_node == data;
-}
-
-/** 
- * Fetch spi device by name defined in device tree
- * 
- * @param ofname name of device in devicetreee
- * 
- * @return struct spi_device *, NULL on failure
- */
-struct spi_device * get_spi_device(const char *ofname)
-{
-	struct spi_device *spidev = NULL;
-	struct device_node *node=NULL;
-	struct device * device;
-#ifdef CONFIG_OF
-	node=of_find_node_by_name(0, ofname);
+	*retlen=0;
+	return -1;
+};
 #endif
-	if(! node){
-		pr_err("Could not find node %s\n", ofname);
-		return NULL;
-	}
-	device = bus_find_device(&spi_bus_type, NULL, node, of_dev_node_match);
-	if(! device){
-		pr_err("Could not extract device from node\n");
-		return NULL;
-	}
-
-	spidev = to_spi_device(device);
-	if(!spidev){
-		return NULL;
-	}
-
-	return spidev;
-}
-
-
-/** 
- * Read from spi device att position for header data from FPGA bin file, 
- * Check if 5 first bytes are FLIR\0
- * 
- * @return true if first 5 bytes are FLIR\0
- */
-int check_if_header_exist(struct spi_device *spidev)
-{
-	//Now i got an spi_device of the node... What i would like is an sturct m25p *flash...
-	//Or a struct mtd_in *mtd...
-	unsigned char txbuf[5];
-	unsigned char rxbuf[5];
-	int ntx, nrx;
-	int ret = false;
-	int address = HEADER_START_ADDRESS;
-
-	txbuf[0]=OPCODE_NORM_READ_4B;
-	txbuf[1]=address >> 24 & 0xff;
-	txbuf[2]=address >> 16 & 0xff;
-	txbuf[3]=address >> 8  & 0xff;
-	txbuf[4]=address >> 0  & 0xff;
-	ntx = 5;
-	nrx = 5;
-	ret = spi_write_then_read(spidev, txbuf, ntx, rxbuf, nrx);
-
-	if(strncmp(rxbuf, "FLIR", 5) == 0)
-	{
-		ret = true;
-	} 
-
-	return ret;
-}
 
 /** 
  * Read header from spi device 
@@ -91,26 +28,24 @@ int check_if_header_exist(struct spi_device *spidev)
  * rxbuf - allocated buffer the size of HEADER_LENGTH
  * @return header data on success, else NULL
  */
-unsigned char * read_header(struct spi_device *spidev, unsigned char *rxbuf)
+int read_header(struct mtd_info *mtd, unsigned char *rxbuf)
 {
-	//Now i got an spi_device of the node... What i would like is an sturct m25p *flash...
-	//Or a struct mtd_in *mtd...
-	unsigned char txbuf[5];
-	int ntx, nrx;
-	unsigned char *ret = NULL;
-	int address = HEADER_START_ADDRESS;
+	int address = (mtd->size - HEADER_LENGTH);
+	int retlen;
+	int ret = mtd_read(mtd, address, HEADER_LENGTH, &retlen, rxbuf);
 
-	txbuf[0]=OPCODE_NORM_READ_4B;
-	txbuf[1]=address >> 24 & 0xff;
-	txbuf[2]=address >> 16 & 0xff;
-	txbuf[3]=address >> 8  & 0xff;
-	txbuf[4]=address >> 0  & 0xff;
-	ntx = 5;
-	nrx = HEADER_LENGTH;
-	if(spi_write_then_read(spidev, txbuf, ntx, rxbuf, nrx) == 0){
-		ret = rxbuf;
+	if(ret !=0 || retlen != HEADER_LENGTH)
+	{
+		pr_err("Failed reading spi flash %d %d\n",ret,retlen);
+		return -ENODEV;
 	}
-	
+
+	if(strncmp(rxbuf, "FLIR", 4))
+	{
+		pr_err("Missing FLIR header in spi flash %d\n",ret);
+		return -EINVAL;
+	}
+
 	return ret;
 }
 
@@ -191,19 +126,14 @@ void prerr_specific_header(BXAB_FPGA_T *pSpec)
  */
 int extract_headers(unsigned char *rxbuf, GENERIC_FPGA_T *pGen, BXAB_FPGA_T *pSpec)
 {
+	memcpy(pGen, rxbuf, sizeof(GENERIC_FPGA_T));
 
-		memcpy(pGen, rxbuf, sizeof(GENERIC_FPGA_T));
+	if(pGen->spec_size){
+		memcpy(pSpec, &rxbuf[sizeof(GENERIC_FPGA_T)], sizeof(BXAB_FPGA_T));
 
-		if(pGen->spec_size){
-			memcpy(pSpec, &rxbuf[sizeof(GENERIC_FPGA_T)], sizeof(BXAB_FPGA_T));
-			
-		} else {
-			pSpec = NULL;
-		}
-
-		/* pr_err("MD5SUM in header\n"); */
-		/* pr_err("%s\n\n", &rxbuf[HEADER_LENGTH-37]); */
-
+	} else {
+		pSpec = NULL;
+	}
 	return 0;
 }
 
@@ -216,26 +146,14 @@ int extract_headers(unsigned char *rxbuf, GENERIC_FPGA_T *pGen, BXAB_FPGA_T *pSp
 */
 int read_spi_header(unsigned char *rxbuf)
 {
-	int ret;
-	struct spi_device *spidev;
+	struct mtd_info *mtd = get_mtd_device(NULL, MTD_DEVICE);
 
-	spidev = get_spi_device("m25p80");
-	if(!spidev){
-		ret = -1;
-		goto END;
+	if(!mtd){
+		pr_err("Failed to get mtd device \n");
+		return -ENODEV;
 	}
 
-	if(check_if_header_exist(spidev)){
-		read_header(spidev, rxbuf);
-		/* pr_err("Size of generic + specific header is %i\n", sizeof(GENERIC_FPGA_T) + sizeof(BXAB_FPGA_T)); */
-	} else { 
-		ret=-1;
-		goto END;
-	}
-		
-	ret = 0;
-END:
-	return ret;
+	return read_header(mtd,rxbuf);
 }
 
 

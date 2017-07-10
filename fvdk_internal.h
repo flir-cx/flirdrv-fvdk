@@ -115,6 +115,7 @@ void SetupMX51(PFVD_DEV_INFO pDev);
 void SetupMX6S(PFVD_DEV_INFO pDev);
 void SetupMX6Q(PFVD_DEV_INFO pDev);
 void SetupMX6S_ec101(PFVD_DEV_INFO pDev);
+void SetupMX6S_ec501(PFVD_DEV_INFO pDev);
 
 // Function prototypes for common FVD functions
 DWORD CheckFPGA(PFVD_DEV_INFO pDev);
