@@ -148,9 +148,9 @@ int read_spi_header(unsigned char *rxbuf)
 {
 	struct mtd_info *mtd = get_mtd_device(NULL, MTD_DEVICE);
 
-	if(!mtd){
+	if (IS_ERR(mtd)) {
 		pr_err("Failed to get mtd device \n");
-		return -ENODEV;
+		return PTR_ERR(mtd);
 	}
 
 	return read_header(mtd,rxbuf);
