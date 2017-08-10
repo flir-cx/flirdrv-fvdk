@@ -147,13 +147,16 @@ int extract_headers(unsigned char *rxbuf, GENERIC_FPGA_T *pGen, BXAB_FPGA_T *pSp
 int read_spi_header(unsigned char *rxbuf)
 {
 	struct mtd_info *mtd = get_mtd_device(NULL, MTD_DEVICE);
+	int ret;
 
 	if (IS_ERR(mtd)) {
 		pr_err("Failed to get mtd device \n");
 		return PTR_ERR(mtd);
 	}
 
-	return read_header(mtd,rxbuf);
+	ret = read_header(mtd,rxbuf);
+	put_mtd_device(mtd);
+	return ret;
 }
 
 
