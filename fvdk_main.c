@@ -64,6 +64,7 @@ static DWORD DoIOControl(PFVD_DEV_INFO pDev,
 static int FVD_mmap (struct file * filep,
                      struct vm_area_struct * vma);
 static int fvdk_suspend(struct device *pdev);
+static int fvdk_shutdown(struct device *pdev);
 static int fvdk_resume(struct device *pdev);
 
 // Local variables
@@ -217,12 +218,21 @@ static int FVD_mmap (struct file * filep, struct vm_area_struct * vma)
     return 0;
 }
 
-// static int fvdk_suspend(struct platform_device *pdev, pm_message_t state)
 static int fvdk_suspend(struct device *pdev)
 {
 	pr_debug("Suspend FVDK driver\n");
 
-	// Power Down
+	/* Power Down */
+	gpDev->pBSPFvdPowerDownFPA(gpDev);
+	gpDev->pBSPFvdPowerDown(gpDev);
+	return 0;
+}
+
+static int fvdk_shutdown(struct device *pdev)
+{
+	pr_debug("Shutdown FVDK driver\n");
+
+	/* Power Down */
 	gpDev->pBSPFvdPowerDownFPA(gpDev);
 	gpDev->pBSPFvdPowerDown(gpDev);
 	return 0;
@@ -340,6 +350,7 @@ static const struct dev_pm_ops fvdk_pm_ops = {
 static struct platform_driver fvdk_driver = {
 	.probe      = fvdk_probe,
 	.remove     = fvdk_remove,
+	.shutdown   = fvdk_shutdown,
 	.driver     = {
 		.name   = "fvdk",
 		.owner  = THIS_MODULE,
