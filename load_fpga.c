@@ -26,6 +26,7 @@
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
 #include <linux/errno.h>
+#include <linux/version.h>
 
 // Definitions
 #define ERROR_NO_INIT_OK        10001
@@ -189,7 +190,13 @@ DWORD CheckFPGA(PFVD_DEV_INFO pDev)
     .mode = SPI_MODE_0,
 };
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
+#define tms(x) ((long int)ktime_to_ms(x))
+#define gettime(tp) (*(tp) = ktime_get())
+#else
 #define tms(x) (x.tv_sec*1000 + x.tv_usec/1000)
+#define gettime(tp) (do_gettimeofday(tp))
+#endif
 
 DWORD LoadFPGA(PFVD_DEV_INFO pDev, char* szFileName)
 {
@@ -197,11 +204,15 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char* szFileName)
     unsigned long size;
     unsigned char *fpgaBin;
     int ret;
-	struct spi_master *pspim;
-	struct spi_device *pspid;
-	struct timeval t[10];
-
-	do_gettimeofday(&t[0]);
+    struct spi_master *pspim;
+    struct spi_device *pspid;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
+    ktime_t t[10];
+#else
+    struct timeval t[10];
+#endif
+    
+    gettime(&t[0]);
 
     // read file
     fpgaBin = getFPGAData(pDev, &size, pDev->fpga);
@@ -218,7 +229,7 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char* szFileName)
         //platforms with pcie loads fpga in u-boot
     }
 
-	do_gettimeofday(&t[1]);
+    gettime(&t[1]);
 
     // swap bit and byte order
     if (((GENERIC_FPGA_T *)(pDev->fpga))->LSBfirst)
@@ -263,7 +274,7 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char* szFileName)
 
     pr_err("LoadFPGA: Activating programming mode\n");
 
-	do_gettimeofday(&t[2]);
+    gettime(&t[2]);
 
     // Put FPGA in programming mode
     if (pDev->pPutInProgrammingMode(pDev) == 0)
@@ -277,7 +288,7 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char* szFileName)
         }
     }
 
-	do_gettimeofday(&t[3]);
+    gettime(&t[3]);
 
     pr_err("LoadFPGA: Sending FPGA code over SPI%d\n", pDev->iSpiBus);
 
@@ -300,14 +311,14 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char* szFileName)
     		((size/pDev->iSpiCountDivisor) + pDev->iSpiCountDivisor - 1) & ~3);
 
     device_unregister(&pspid->dev);
-	put_device(&pspim->dev);
+    put_device(&pspim->dev);
 
-	do_gettimeofday(&t[4]);
+    gettime(&t[4]);
 
     //programming OK?
     res = CheckFPGA(pDev);
 
-	do_gettimeofday(&t[5]);
+    gettime(&t[5]);
 
     // Printing mesage here breaks startup timing for SB 0601 detectors
     pr_err("FPGA loaded in %ld ms (read %ld rotate %ld prep %ld SPI %ld check %ld)\r\n",

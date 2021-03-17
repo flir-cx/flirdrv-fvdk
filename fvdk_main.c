@@ -32,7 +32,21 @@
 #include <linux/uaccess.h>
 
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
+
+bool cpu_is_mx51(void) {
+    return of_machine_is_compatible("fsl,imx51");
+}
+
+bool cpu_is_imx6s(void) {
+    return of_machine_is_compatible("fsl,imx6dl");
+}
+
+bool cpu_is_imx6q(void) {
+    return of_machine_is_compatible("fsl,imx6q");
+}
+
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
     #include "../arch/arm/mach-imx/hardware.h"
 
     #ifndef __devexit

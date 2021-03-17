@@ -29,4 +29,6 @@ all:
 	$(MAKE) -C $(KERNEL_SRC) M=$(PWD) modules
 
 clean:
-	$(MAKE) -C $(KERNEL_SRC) M=$(PWD) clean
+	rm -f *.o *~ core .depend .*.cmd *.ko *.mod.c *.mod
+	rm -f Module.markers Module.symvers modules.order
+	rm -rf .tmp_versions Modules.symvers
