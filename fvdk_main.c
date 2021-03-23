@@ -99,14 +99,22 @@ MODULE_PARM_DESC(lock_timeout, "Mutex timeout in ms");
 static int read_proc(struct seq_file *m, void *v);
 static int fvd_proc_open(struct inode *inode, struct file *file);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
+static const struct proc_ops fvd_proc_ops = {
+    .proc_open          = fvd_proc_open,
+    .proc_read          = seq_read,
+    .proc_lseek         = seq_lseek,
+    .proc_release       = single_release,
+};
+#else
 static const struct file_operations fvd_proc_fops = {
      .owner = THIS_MODULE,
      .open		= fvd_proc_open,
     .read		= seq_read,
     .llseek		= seq_lseek,
     .release	= single_release,
-
 };
+#endif    
 
 static int fvd_proc_open(struct inode *inode, struct file *file)
 {
@@ -315,7 +323,9 @@ static int fvdk_probe(struct platform_device *pdev)
 	}
 
 	/* Setup /proc read only file system entry. */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
+	gpDev->proc = proc_create_data("fvdk", 0, NULL, &fvd_proc_ops, gpDev);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	gpDev->proc = proc_create_data("fvdk", 0, NULL, &fvd_proc_fops, gpDev);
 #else
 	gpDev->proc = create_proc_read_entry("fvdk", 0, NULL, FVD_procfs_read, gpDev);
@@ -731,7 +741,7 @@ DWORD DoIOControl(
         break;
 
     default:
-        pr_warning("FVDK: Ioctl %lX not supported\n", Ioctl);
+        pr_warn("FVDK: Ioctl %lX not supported\n", Ioctl);
         dwErr = ERROR_NOT_SUPPORTED;
         break;
     }
