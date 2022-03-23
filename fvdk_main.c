@@ -32,11 +32,6 @@
 
 #if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
 
-bool cpu_is_mx51(void)
-{
-	return of_machine_is_compatible("fsl,imx51");
-}
-
 bool cpu_is_imx6s(void)
 {
 	return of_machine_is_compatible("fsl,imx6dl");
@@ -295,9 +290,7 @@ static int fvdk_probe(struct platform_device *pdev)
 		SetupMX6S_ec501(gpDev);
 	else
 #endif
-		if (cpu_is_mx51())
-			SetupMX51(gpDev);
-		else if (cpu_is_imx6s())
+		if (cpu_is_imx6s())
 			SetupMX6S(gpDev);
 		else if (cpu_is_imx6q())
 			SetupMX6Q(gpDev);
