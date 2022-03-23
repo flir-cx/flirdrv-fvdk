@@ -15,8 +15,8 @@
  *
  * Copyright: FLIR Systems AB.  All rights reserved.
  *
- ***********************************************************************/  
-    
+ ***********************************************************************/
+
 #include "flir_kernel_os.h"
 #include "fpga.h"
 #include "fvdkernel.h"
@@ -27,12 +27,12 @@
 #include <linux/regulator/consumer.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
-    #include "../arch/arm/mach-imx/mx6.h"
-#else	/*  */
-    #include "mach/mx6.h"
-    #define devm_regulator_get regulator_get
-#endif	/*  */
-     
+#include "../arch/arm/mach-imx/mx6.h"
+#else /*  */
+#include "mach/mx6.h"
+#define devm_regulator_get regulator_get
+#endif /*  */
+
 // Definitions
 #define FPGA_CE             ((5-1)*32 + 28)	// GPIO 5.28
 #define FPGA_CONF_DONE		((7-1)*32 + 13)
@@ -54,7 +54,7 @@
 #define IRDM_MClk           0x08
 #define SpimSendReqFSEn     0x10
 #define USE_SPI_CRC         0x1000
-    
+
 // Local prototypes
 static BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev);
 static void CleanupGpioMX6Q(PFVD_DEV_INFO pDev);
@@ -72,7 +72,7 @@ static u32 fpgaPower = FPGA_POWER_EN;
 static bool fpaIsEnabled = false;
 
 // Code
-void SetupMX6Q(PFVD_DEV_INFO pDev) 
+void SetupMX6Q(PFVD_DEV_INFO pDev)
 {
 	pDev->pSetupGpioAccess = SetupGpioAccessMX6Q;
 	pDev->pCleanupGpio = CleanupGpioMX6Q;
@@ -90,10 +90,10 @@ void SetupMX6Q(PFVD_DEV_INFO pDev)
 	pDev->spi_flash = true;
 }
 
-BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev) 
+BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev)
 {
 	int article, revision;
-    struct device *dev = &pDev->pLinuxDevice->dev;
+	struct device *dev = &pDev->pLinuxDevice->dev;
 
 	GetMainboardVersion(pDev, &article, &revision);
 	if (article == ROCO_ARTNO && revision == 1)
@@ -137,27 +137,26 @@ BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev)
 	gpio_direction_output(FPGA_CONFIG, 1);
 	gpio_direction_output(fpgaPower, 1);	//Enable fpga power as default
 
+	pDev->reg_3v15_fpa = devm_regulator_get(dev, "3V15_fpa");
+	if (IS_ERR(pDev->reg_3v15_fpa))
+		dev_err(dev, "can't get regulator 3V15_fpa\n");
 
-    pDev->reg_3v15_fpa = devm_regulator_get(dev, "3V15_fpa");
-    if(IS_ERR(pDev->reg_3v15_fpa))
-        dev_err(dev,"can't get regulator 3V15_fpa\n");
+	pDev->reg_4v0_fpa = devm_regulator_get(dev, "4V0_fpa");
+	if (IS_ERR(pDev->reg_4v0_fpa))
+		dev_err(dev, "can't get regulator 4V0_fpa");
 
-    pDev->reg_4v0_fpa = devm_regulator_get(dev, "4V0_fpa");
-    if(IS_ERR(pDev->reg_4v0_fpa))
-        dev_err(dev,"can't get regulator 4V0_fpa");
+	pDev->reg_detector = devm_regulator_get(dev, "uat1k_detector");
+	if (IS_ERR(pDev->reg_detector))
+		dev_err(dev, "can't get regulator uat1k_detector");
 
-    pDev->reg_detector = devm_regulator_get(dev, "uat1k_detector");
-    if(IS_ERR(pDev->reg_detector))
-        dev_err(dev,"can't get regulator uat1k_detector");
-
-    pDev->reg_mems = devm_regulator_get(dev, "uat1k_mems");
-    if(IS_ERR(pDev->reg_mems))
-        dev_err(dev,"can't get regulator uat1k_mems");
+	pDev->reg_mems = devm_regulator_get(dev, "uat1k_mems");
+	if (IS_ERR(pDev->reg_mems))
+		dev_err(dev, "can't get regulator uat1k_mems");
 
 	return TRUE;
 }
 
-void CleanupGpioMX6Q(PFVD_DEV_INFO pDev) 
+void CleanupGpioMX6Q(PFVD_DEV_INFO pDev)
 {
 	gpio_free(FPGA_CE);
 	gpio_free(FPGA_CONF_DONE);
@@ -182,9 +181,9 @@ BOOL GetPinReadyMX6Q(PFVD_DEV_INFO pDev)
 	return (gpio_get_value(FPGA_READY) != 0);
 }
 
-DWORD PutInProgrammingModeMX6Q(PFVD_DEV_INFO pDev) 
+DWORD PutInProgrammingModeMX6Q(PFVD_DEV_INFO pDev)
 {
-	
+
 	// Set idle state (probably already done)
 	gpio_set_value(FPGA_CONFIG, 1);
 	msleep(1);
@@ -194,13 +193,11 @@ DWORD PutInProgrammingModeMX6Q(PFVD_DEV_INFO pDev)
 	msleep(1);
 
 	// Verify status
-	if (GetPinStatusMX6Q(pDev))
-	{
+	if (GetPinStatusMX6Q(pDev)) {
 		pr_err("FPGA: Status not initially low\n");
 		return 0;
 	}
-	if (GetPinDoneMX6Q(pDev))
-	{
+	if (GetPinDoneMX6Q(pDev)) {
 		pr_err("FPGA: Conf_Done not initially low\n");
 		return 0;
 	}
@@ -210,8 +207,7 @@ DWORD PutInProgrammingModeMX6Q(PFVD_DEV_INFO pDev)
 	msleep(1);
 
 	// Verify status
-	if (!GetPinStatusMX6Q(pDev))
-	{
+	if (!GetPinStatusMX6Q(pDev)) {
 		pr_err("FPGA: Status not high when config released\n");
 		return 0;
 	}
@@ -252,13 +248,13 @@ void BSPFvdPowerUpMX6Q(PFVD_DEV_INFO pDev, BOOL restart)
 		gpio_set_value(FPGA_CONFIG, 1);
 
 		while (timeout--) {
-			msleep (10);
+			msleep(10);
 			if (GetPinDoneMX6Q(pDev))
 				break;
 		}
 		pr_info("FVDK timeout MX6Q %d\n", timeout);
 
-		gpio_direction_output(GPIO_SPI1_CS,1);
+		gpio_direction_output(GPIO_SPI1_CS, 1);
 		gpio_free(GPIO_SPI1_SCLK);
 		gpio_free(GPIO_SPI1_MOSI);
 		gpio_free(GPIO_SPI1_MISO);
@@ -266,54 +262,53 @@ void BSPFvdPowerUpMX6Q(PFVD_DEV_INFO pDev, BOOL restart)
 	}
 }
 
-void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev) 
+void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev)
 {
 	// Disable FPGA
 	gpio_set_value(FPGA_CE, 1);
 	msleep(1);
-	
+
 	gpio_set_value(fpgaPower, 0);
-}  
-
-// Separate FPA power down
-void BSPFvdPowerDownFPAMX6Q(PFVD_DEV_INFO pDev) 
-{
-	int ret;
-	if( IS_ERR(pDev->reg_mems)     || IS_ERR(pDev->reg_detector) ||
-	    IS_ERR(pDev->reg_3v15_fpa) || IS_ERR(pDev->reg_4v0_fpa))
-		return;
-
-    if(!fpaIsEnabled)
-        return;
-    fpaIsEnabled = false;
-
-    ret = regulator_disable(pDev->reg_mems);
-    ret |= regulator_disable(pDev->reg_detector);
-    ret |= regulator_disable(pDev->reg_3v15_fpa);
-    ret |= regulator_disable(pDev->reg_4v0_fpa);
-
-    if(ret)
-        dev_err(&pDev->pLinuxDevice->dev,"can't disable fpa \n");
 }
 
-void BSPFvdPowerUpFPAMX6Q(PFVD_DEV_INFO pDev) 
+// Separate FPA power down
+void BSPFvdPowerDownFPAMX6Q(PFVD_DEV_INFO pDev)
 {
-    int ret;
-	if( IS_ERR(pDev->reg_mems)     || IS_ERR(pDev->reg_detector) ||
+	int ret;
+	if (IS_ERR(pDev->reg_mems) || IS_ERR(pDev->reg_detector) ||
 	    IS_ERR(pDev->reg_3v15_fpa) || IS_ERR(pDev->reg_4v0_fpa))
 		return;
 
-    if(fpaIsEnabled)
-        return;
-    fpaIsEnabled = true;
+	if (!fpaIsEnabled)
+		return;
+	fpaIsEnabled = false;
 
-    ret = regulator_enable(pDev->reg_3v15_fpa);
-    ret |= regulator_enable(pDev->reg_4v0_fpa);
+	ret = regulator_disable(pDev->reg_mems);
+	ret |= regulator_disable(pDev->reg_detector);
+	ret |= regulator_disable(pDev->reg_3v15_fpa);
+	ret |= regulator_disable(pDev->reg_4v0_fpa);
+
+	if (ret)
+		dev_err(&pDev->pLinuxDevice->dev, "can't disable fpa \n");
+}
+
+void BSPFvdPowerUpFPAMX6Q(PFVD_DEV_INFO pDev)
+{
+	int ret;
+	if (IS_ERR(pDev->reg_mems) || IS_ERR(pDev->reg_detector) ||
+	    IS_ERR(pDev->reg_3v15_fpa) || IS_ERR(pDev->reg_4v0_fpa))
+		return;
+
+	if (fpaIsEnabled)
+		return;
+	fpaIsEnabled = true;
+
+	ret = regulator_enable(pDev->reg_3v15_fpa);
+	ret |= regulator_enable(pDev->reg_4v0_fpa);
 	msleep(5);
-    ret |= regulator_enable(pDev->reg_detector);
-    ret |= regulator_enable(pDev->reg_mems);
+	ret |= regulator_enable(pDev->reg_detector);
+	ret |= regulator_enable(pDev->reg_mems);
 
-    if(ret)
-        dev_err(&pDev->pLinuxDevice->dev,"can't enable fpa \n");
-} 
-
+	if (ret)
+		dev_err(&pDev->pLinuxDevice->dev, "can't enable fpa \n");
+}

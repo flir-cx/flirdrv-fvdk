@@ -31,10 +31,8 @@
 #include "mach/mx6.h"
 #endif
 
-
-
 // Definitions
-#define FPGA_CE			((5-1)*32 + 28)		// GPIO 5.28
+#define FPGA_CE			((5-1)*32 + 28)	// GPIO 5.28
 #define FPGA_CONF_DONE	((5-1)*32 + 27)
 #define FPGA_CONFIG		((5-1)*32 + 25)
 #define FPGA_STATUS		((5-1)*32 + 26)
@@ -81,30 +79,30 @@ void SetupMX6S(PFVD_DEV_INFO pDev)
 	pDev->pPutInProgrammingMode = PutInProgrammingModeMX6S;
 	pDev->pBSPFvdPowerUp = BSPFvdPowerUpMX6S;
 	pDev->pBSPFvdPowerDown = BSPFvdPowerDownMX6S;
-    pDev->pBSPFvdPowerDownFPA = BSPFvdPowerDownFPAMX6S;
-    pDev->pBSPFvdPowerUpFPA = BSPFvdPowerUpFPAMX6S;
+	pDev->pBSPFvdPowerDownFPA = BSPFvdPowerDownFPAMX6S;
+	pDev->pBSPFvdPowerUpFPA = BSPFvdPowerUpFPAMX6S;
 
-    pDev->iSpiBus = 0;			// SPI no = 0
-    pDev->iSpiCountDivisor = 1;	// Count is no of bytes
-    pDev->iI2c = 2;	// Main i2c bus
+	pDev->iSpiBus = 0;	// SPI no = 0
+	pDev->iSpiCountDivisor = 1;	// Count is no of bytes
+	pDev->iI2c = 2;		// Main i2c bus
 }
 
 BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 {
 	if (gpio_is_valid(FPGA_CE) == 0)
-	    pr_err("FpgaCE can not be used\n");
+		pr_err("FpgaCE can not be used\n");
 	if (gpio_is_valid(FPGA_CONF_DONE) == 0)
-	    pr_err("FpgaConfDone can not be used\n");
+		pr_err("FpgaConfDone can not be used\n");
 	if (gpio_is_valid(FPGA_CONFIG) == 0)
-	    pr_err("FpgaConfig can not be used\n");
+		pr_err("FpgaConfig can not be used\n");
 	if (gpio_is_valid(FPGA_STATUS) == 0)
-	    pr_err("FpgaStatus can not be used\n");
+		pr_err("FpgaStatus can not be used\n");
 	if (gpio_is_valid(FPGA_READY) == 0)
-	    pr_err("FpgaReady can not be used\n");
+		pr_err("FpgaReady can not be used\n");
 	if (gpio_is_valid(FPGA_POWER_EN) == 0)
-	    pr_err("FpgaPowerEn can not be used\n");
+		pr_err("FpgaPowerEn can not be used\n");
 	if (gpio_is_valid(FPA_POWER_EN) == 0)
-	    pr_err("FpaPowerEn can not be used\n");
+		pr_err("FpaPowerEn can not be used\n");
 
 	gpio_request(FPGA_CE, "FpgaCE");
 	gpio_request(FPGA_CONF_DONE, "FpgaConfDone");
@@ -123,7 +121,7 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 	gpio_direction_output(FPGA_POWER_EN, 0);
 	gpio_direction_output(FPA_POWER_EN, 0);
 
-    return TRUE;
+	return TRUE;
 }
 
 void CleanupGpioMX6S(PFVD_DEV_INFO pDev)
@@ -139,17 +137,17 @@ void CleanupGpioMX6S(PFVD_DEV_INFO pDev)
 
 BOOL GetPinDoneMX6S(PFVD_DEV_INFO pDev)
 {
-    return (gpio_get_value(FPGA_CONF_DONE) != 0);
+	return (gpio_get_value(FPGA_CONF_DONE) != 0);
 }
 
 BOOL GetPinStatusMX6S(PFVD_DEV_INFO pDev)
 {
-    return (gpio_get_value(FPGA_STATUS) != 0);
+	return (gpio_get_value(FPGA_STATUS) != 0);
 }
 
 BOOL GetPinReadyMX6S(PFVD_DEV_INFO pDev)
 {
-    return (gpio_get_value(FPGA_READY) != 0);
+	return (gpio_get_value(FPGA_READY) != 0);
 }
 
 DWORD PutInProgrammingModeMX6S(PFVD_DEV_INFO pDev)
@@ -158,35 +156,32 @@ DWORD PutInProgrammingModeMX6S(PFVD_DEV_INFO pDev)
 	gpio_set_value(FPGA_CONFIG, 1);
 	msleep(1);
 
-    // Activate programming (CONFIG  LOW)
+	// Activate programming (CONFIG  LOW)
 	gpio_set_value(FPGA_CONFIG, 0);
 	msleep(1);
 
-    // Verify status
-    if (GetPinStatusMX6S(pDev))
-    {
-        pr_err("FPGA: Status not initially low\n");
-        return 0;
-    }
-    if (GetPinDoneMX6S(pDev))
-    {
-        pr_err("FPGA: Conf_Done not initially low\n");
-        return 0;
-    }
+	// Verify status
+	if (GetPinStatusMX6S(pDev)) {
+		pr_err("FPGA: Status not initially low\n");
+		return 0;
+	}
+	if (GetPinDoneMX6S(pDev)) {
+		pr_err("FPGA: Conf_Done not initially low\n");
+		return 0;
+	}
 
-    // Release config
+	// Release config
 	gpio_set_value(FPGA_CONFIG, 1);
 	msleep(1);
 
-    // Verify status
-    if (! GetPinStatusMX6S(pDev))
-    {
-        pr_err("FPGA: Status not high when config released\n");
-        return 0;
-    }
+	// Verify status
+	if (!GetPinStatusMX6S(pDev)) {
+		pr_err("FPGA: Status not high when config released\n");
+		return 0;
+	}
 
 	msleep(1);
-    return 1;
+	return 1;
 }
 
 void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart)
@@ -199,11 +194,11 @@ void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart)
 
 void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
 {
-    // This function should suspend power to the device.
-    // It is useful only with devices that can power down under software control.
+	// This function should suspend power to the device.
+	// It is useful only with devices that can power down under software control.
 	gpio_set_value(FPA_POWER_EN, 0);
 
-    // Disable FPGA
+	// Disable FPGA
 	gpio_set_value(FPGA_CE, 1);
 	msleep(1);
 	gpio_set_value(FPGA_POWER_EN, 0);
@@ -212,10 +207,10 @@ void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
 // Separate FPA power down
 void BSPFvdPowerDownFPAMX6S(PFVD_DEV_INFO pDev)
 {
-    gpio_set_value(FPA_POWER_EN, 0);
+	gpio_set_value(FPA_POWER_EN, 0);
 }
 
 void BSPFvdPowerUpFPAMX6S(PFVD_DEV_INFO pDev)
 {
-    gpio_set_value(FPA_POWER_EN, 1);
+	gpio_set_value(FPA_POWER_EN, 1);
 }

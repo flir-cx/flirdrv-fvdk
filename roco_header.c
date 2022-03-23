@@ -15,9 +15,9 @@
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
 int mtd_read(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen,
-	     u_char *buf)
+	     u_char * buf)
 {
-	*retlen=0;
+	*retlen = 0;
 	return -1;
 };
 #endif
@@ -34,15 +34,13 @@ int read_header(struct mtd_info *mtd, unsigned char *rxbuf)
 	int retlen;
 	int ret = mtd_read(mtd, address, HEADER_LENGTH, &retlen, rxbuf);
 
-	if(ret !=0 || retlen != HEADER_LENGTH)
-	{
-		pr_err("Failed reading spi flash %d %d\n",ret,retlen);
+	if (ret != 0 || retlen != HEADER_LENGTH) {
+		pr_err("Failed reading spi flash %d %d\n", ret, retlen);
 		return -ENODEV;
 	}
 
-	if(strncmp(rxbuf, "FLIR", 4))
-	{
-		pr_err("Missing FLIR header in spi flash %d\n",ret);
+	if (strncmp(rxbuf, "FLIR", 4)) {
+		pr_err("Missing FLIR header in spi flash %d\n", ret);
 		return -EINVAL;
 	}
 
@@ -54,7 +52,7 @@ int read_header(struct mtd_info *mtd, unsigned char *rxbuf)
  * 
  * @param pGen 
  */
-void prerr_generic_header(GENERIC_FPGA_T *pGen)
+void prerr_generic_header(GENERIC_FPGA_T * pGen)
 {
 /* Print generic header information */
 	pr_err("\n");
@@ -62,8 +60,10 @@ void prerr_generic_header(GENERIC_FPGA_T *pGen)
 	pr_err("*****************\n");
 	pr_err("Identity: %s\n", pGen->identity);
 	pr_err("headerrev %i\n", pGen->headerrev);
-	if (pGen->LSBfirst) pr_err("LSbit first (ALTERA)\n");
-	else pr_err("MSbit first (XILINX)\n");
+	if (pGen->LSBfirst)
+		pr_err("LSbit first (ALTERA)\n");
+	else
+		pr_err("MSbit first (XILINX)\n");
 	pr_err("FPGA Name %s\n", pGen->name);
 	pr_err("Creation date %s\n", pGen->date);
 	pr_err("FPGA Major version %ld\n", pGen->major);
@@ -84,7 +84,7 @@ void prerr_generic_header(GENERIC_FPGA_T *pGen)
  * 
  * @param pSpec 
  */
-void prerr_specific_header(BXAB_FPGA_T *pSpec)
+void prerr_specific_header(BXAB_FPGA_T * pSpec)
 {
 /* Print specific header information */
 	pr_err("\n");
@@ -124,12 +124,14 @@ void prerr_specific_header(BXAB_FPGA_T *pSpec)
  * 
  * @return 0 on success
  */
-int extract_headers(unsigned char *rxbuf, GENERIC_FPGA_T *pGen, BXAB_FPGA_T *pSpec)
+int extract_headers(unsigned char *rxbuf, GENERIC_FPGA_T * pGen,
+		    BXAB_FPGA_T * pSpec)
 {
 	memcpy(pGen, rxbuf, sizeof(GENERIC_FPGA_T));
 
-	if(pGen->spec_size){
-		memcpy(pSpec, &rxbuf[sizeof(GENERIC_FPGA_T)], sizeof(BXAB_FPGA_T));
+	if (pGen->spec_size) {
+		memcpy(pSpec, &rxbuf[sizeof(GENERIC_FPGA_T)],
+		       sizeof(BXAB_FPGA_T));
 
 	} else {
 		pSpec = NULL;
@@ -154,9 +156,7 @@ int read_spi_header(unsigned char *rxbuf)
 		return PTR_ERR(mtd);
 	}
 
-	ret = read_header(mtd,rxbuf);
+	ret = read_header(mtd, rxbuf);
 	put_mtd_device(mtd);
 	return ret;
 }
-
-

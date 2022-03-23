@@ -35,9 +35,8 @@
 #include "mach/mx51.h"
 #endif
 
-
 // Definitions
-#define FPGA_CE			((4-1)*32 + 24)		// GPIO 4.24
+#define FPGA_CE			((4-1)*32 + 24)	// GPIO 4.24
 #define FPGA_CONF_DONE	((4-1)*32 + 25)
 #define FPGA_CONFIG		((4-1)*32 + 26)
 #define FPGA_STATUS		((1-1)*32 +  7)
@@ -48,7 +47,6 @@
 #define FPGA_IRQ_0		((2-1)*32 + 23)
 
 // Local prototypes
-
 
 static BOOL SetupGpioAccessMX51(PFVD_DEV_INFO pDev);
 static void CleanupGpioMX51(PFVD_DEV_INFO pDev);
@@ -64,15 +62,15 @@ static void BSPFvdPowerUpMX51(PFVD_DEV_INFO pDev, BOOL restart);
 
 static struct resource fvd_resources[] = {
 	{
-		.start = MX51_CS1_BASE_ADDR,
-		.end = MX51_CS1_BASE_ADDR + 0x3FF,
-		.flags = IORESOURCE_MEM,
-	},
+	 .start = MX51_CS1_BASE_ADDR,
+	 .end = MX51_CS1_BASE_ADDR + 0x3FF,
+	 .flags = IORESOURCE_MEM,
+	  },
 	{
-		.start = MX51_CS2_BASE_ADDR,
-		.end = MX51_CS2_BASE_ADDR + 0x3FFF,
-		.flags = IORESOURCE_MEM,
-	},
+	 .start = MX51_CS2_BASE_ADDR,
+	 .end = MX51_CS2_BASE_ADDR + 0x3FFF,
+	 .flags = IORESOURCE_MEM,
+	  },
 };
 
 // Code
@@ -88,33 +86,32 @@ void SetupMX51(PFVD_DEV_INFO pDev)
 	pDev->pBSPFvdPowerUp = BSPFvdPowerUpMX51;
 	pDev->pBSPFvdPowerDown = BSPFvdPowerDownMX51;
 
-    platform_device_add_resources(pDev->pLinuxDevice, fvd_resources,
-    							  ARRAY_SIZE(fvd_resources));
+	platform_device_add_resources(pDev->pLinuxDevice, fvd_resources,
+				      ARRAY_SIZE(fvd_resources));
 
-    pDev->iSpiBus = 1;			// SPI no = 1
-    pDev->iSpiCountDivisor = 4;	// Count is no of words
-    pDev->iI2c = 2;	// Main i2c bus
+	pDev->iSpiBus = 1;	// SPI no = 1
+	pDev->iSpiCountDivisor = 4;	// Count is no of words
+	pDev->iI2c = 2;		// Main i2c bus
 }
-
 
 BOOL SetupGpioAccessMX51(PFVD_DEV_INFO pDev)
 {
 	if (gpio_is_valid(FPGA_CE) == 0)
-	    pr_err("FpgaCE can not be used\n");
+		pr_err("FpgaCE can not be used\n");
 	if (gpio_is_valid(FPGA_CONF_DONE) == 0)
-	    pr_err("FpgaConfDone can not be used\n");
+		pr_err("FpgaConfDone can not be used\n");
 	if (gpio_is_valid(FPGA_CONFIG) == 0)
-	    pr_err("FpgaConfig can not be used\n");
+		pr_err("FpgaConfig can not be used\n");
 	if (gpio_is_valid(FPGA_STATUS) == 0)
-	    pr_err("FpgaStatus can not be used\n");
+		pr_err("FpgaStatus can not be used\n");
 	if (gpio_is_valid(FPGA_READY) == 0)
-	    pr_err("FpgaReady can not be used\n");
+		pr_err("FpgaReady can not be used\n");
 	if (gpio_is_valid(FPGA_POWER_EN) == 0)
-	    pr_err("FpgaPowerEn can not be used\n");
+		pr_err("FpgaPowerEn can not be used\n");
 	if (gpio_is_valid(FPA_POWER_EN) == 0)
-	    pr_err("FpaPowerEn can not be used\n");
+		pr_err("FpaPowerEn can not be used\n");
 	if (gpio_is_valid(FPA_I2C_EN) == 0)
-	    pr_err("FpaI2CEn can not be used\n");
+		pr_err("FpaI2CEn can not be used\n");
 
 	gpio_request(FPGA_CE, "FpgaCE");
 	gpio_request(FPGA_CONF_DONE, "FpgaConfDone");
@@ -135,7 +132,7 @@ BOOL SetupGpioAccessMX51(PFVD_DEV_INFO pDev)
 	gpio_direction_output(FPA_POWER_EN, 0);
 	gpio_direction_output(FPA_I2C_EN, 0);
 
-    return TRUE;
+	return TRUE;
 }
 
 void CleanupGpioMX51(PFVD_DEV_INFO pDev)
@@ -154,17 +151,17 @@ void CleanupGpioMX51(PFVD_DEV_INFO pDev)
 
 BOOL GetPinDoneMX51(PFVD_DEV_INFO pDev)
 {
-    return (gpio_get_value(FPGA_CONF_DONE) != 0);
+	return (gpio_get_value(FPGA_CONF_DONE) != 0);
 }
 
 BOOL GetPinStatusMX51(PFVD_DEV_INFO pDev)
 {
-    return (gpio_get_value(FPGA_STATUS) != 0);
+	return (gpio_get_value(FPGA_STATUS) != 0);
 }
 
 BOOL GetPinReadyMX51(PFVD_DEV_INFO pDev)
 {
-    return (gpio_get_value(FPGA_READY) != 0);
+	return (gpio_get_value(FPGA_READY) != 0);
 }
 
 DWORD PutInProgrammingModeMX51(PFVD_DEV_INFO pDev)
@@ -173,35 +170,32 @@ DWORD PutInProgrammingModeMX51(PFVD_DEV_INFO pDev)
 	gpio_set_value(FPGA_CONFIG, 1);
 	msleep(1);
 
-    // Activate programming (CONFIG  LOW)
+	// Activate programming (CONFIG  LOW)
 	gpio_set_value(FPGA_CONFIG, 0);
 	msleep(1);
 
-    // Verify status
-    if (GetPinStatusMX51(pDev))
-    {
-        pr_err("FPGA: Status not initially low\n");
-        return 0;
-    }
-    if (GetPinDoneMX51(pDev))
-    {
-        pr_err("FPGA: Conf_Done not initially low\n");
-        return 0;
-    }
+	// Verify status
+	if (GetPinStatusMX51(pDev)) {
+		pr_err("FPGA: Status not initially low\n");
+		return 0;
+	}
+	if (GetPinDoneMX51(pDev)) {
+		pr_err("FPGA: Conf_Done not initially low\n");
+		return 0;
+	}
 
-    // Release config
+	// Release config
 	gpio_set_value(FPGA_CONFIG, 1);
 	msleep(1);
 
-    // Verify status
-    if (! GetPinStatusMX51(pDev))
-    {
-        pr_err("FPGA: Status not high when config released\n");
-        return 0;
-    }
+	// Verify status
+	if (!GetPinStatusMX51(pDev)) {
+		pr_err("FPGA: Status not high when config released\n");
+		return 0;
+	}
 
 	msleep(1);
-    return 1;
+	return 1;
 }
 
 void BSPFvdPowerUpMX51(PFVD_DEV_INFO pDev, BOOL restart)
@@ -218,15 +212,14 @@ void BSPFvdPowerUpMX51(PFVD_DEV_INFO pDev, BOOL restart)
 
 void BSPFvdPowerDownMX51(PFVD_DEV_INFO pDev)
 {
-    // This function should suspend power to the device.
-    // It is useful only with devices that can power down under software control.
+	// This function should suspend power to the device.
+	// It is useful only with devices that can power down under software control.
 	gpio_set_value(FPA_I2C_EN, 0);
 	msleep(1);
 	gpio_set_value(FPA_POWER_EN, 0);
 
-    // Disable FPGA
+	// Disable FPGA
 	gpio_set_value(FPGA_CE, 1);
 	msleep(1);
 	gpio_set_value(FPGA_POWER_EN, 0);
 }
-
