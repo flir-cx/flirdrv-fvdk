@@ -1,5 +1,5 @@
 /***********************************************************************
- *                                                                     
+ *
  * $Date$
  * $Author$
  *
@@ -11,7 +11,7 @@
  *
  * Last check-in changelist:
  * $Change$
- * 
+ *
  *
  * Copyright: FLIR Systems AB.  All rights reserved.
  *
@@ -32,7 +32,7 @@
 #include <linux/regulator/of_regulator.h>
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
 #include "../arch/arm/mach-imx/mx6.h"
 #else /*  */
 #include "mach/mx6.h"
@@ -59,8 +59,8 @@ static void enable_fpga_power(PFVD_DEV_INFO pDev);
 static void reload_fpga(PFVD_DEV_INFO pDev);
 
 // Local variables
-static bool fpaIsEnabled = false;
-static bool fpgaIsEnabled = false;
+static bool fpaIsEnabled;
+static bool fpgaIsEnabled;
 
 // Code
 void SetupMX6S_ec101(PFVD_DEV_INFO pDev)
@@ -152,8 +152,7 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 	if (IS_ERR(pDev->reg_1v8_fpga))
 		dev_err(dev, "can't get regulator DA9063_PERI_SW");
 
-	if (article == EC101_ARTNO && revision == 3)	//revC
-	{
+	if (article == EC101_ARTNO && revision == 3) {	//revC
 		pDev->reg_2v5_fpga = devm_regulator_get(dev, "DA9063_BMEM");
 		if (IS_ERR(pDev->reg_2v5_fpga))
 			dev_err(dev, "can't get regulator DA9063_BMEM");

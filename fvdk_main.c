@@ -1,10 +1,9 @@
 /***********************************************************************
- *                                                                     
+ *
  * Project: Balthazar
  * $Date$
  * $Author$
  *
- * $Id$
  *
  * Description of file:
  *    FLIR Video Device driver.
@@ -12,7 +11,7 @@
  *
  * Last check-in changelist:
  * $Change$
- * 
+ *
  *
  * Copyright: FLIR Systems AB.  All rights reserved.
  *
@@ -30,7 +29,7 @@
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
 
 bool cpu_is_mx51(void)
 {
@@ -47,7 +46,7 @@ bool cpu_is_imx6q(void)
 	return of_machine_is_compatible("fsl,imx6q");
 }
 
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
 #include "../arch/arm/mach-imx/hardware.h"
 
 #ifndef __devexit
@@ -90,11 +89,11 @@ MODULE_PARM_DESC(lock_timeout, "Mutex timeout in ms");
 
 // Code
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
 static int read_proc(struct seq_file *m, void *v);
 static int fvd_proc_open(struct inode *inode, struct file *file);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
 static const struct proc_ops fvd_proc_ops = {
 	.proc_open = fvd_proc_open,
 	.proc_read = seq_read,
@@ -310,9 +309,9 @@ static int fvdk_probe(struct platform_device *pdev)
 	}
 
 	/* Setup /proc read only file system entry. */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
 	gpDev->proc = proc_create_data("fvdk", 0, NULL, &fvd_proc_ops, gpDev);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
 	gpDev->proc = proc_create_data("fvdk", 0, NULL, &fvd_proc_fops, gpDev);
 #else
 	gpDev->proc =
@@ -321,7 +320,7 @@ static int fvdk_probe(struct platform_device *pdev)
 	if (gpDev->proc == NULL) {
 		pr_err("failed to add proc fs entry\n");
 	}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
 	ret = sysfs_create_group(&pdev->dev.kobj, &fvd_groups);
 	if (ret) {
 		pr_err("failed to add sys fs entry\n");
@@ -458,7 +457,7 @@ static int FVD_Open(struct inode *inode, struct file *filp)
 		// The Norflash is flashed from userspace application
 		// Thus, no loading of the FPGA is needed from this driver
 		// However We need to read out the Header data configured inte to FLASH
-		// the header data from the fpga.bin file is stored 64 kbit from the end of the 
+		// the header data from the fpga.bin file is stored 64 kbit from the end of the
 		// memory, 2**28 - 2**16 = 256Mbit - 64 kBit
 		unsigned char *rxbuf;
 
@@ -628,7 +627,7 @@ DWORD DoIOControl(PFVD_DEV_INFO pDev, DWORD Ioctl, PUCHAR pBuf, PUCHAR pUserBuf)
 	case IOCTL_FVDK_GET_FPGA_BUF:
 		{
 			BXAB_FPGA_T *pSpec =
-			    (BXAB_FPGA_T *) & pDev->
+			    (BXAB_FPGA_T *) &pDev->
 			    fpga[sizeof(GENERIC_FPGA_T)];
 			dwErr =
 			    copy_to_user(pUserBuf,

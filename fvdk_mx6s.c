@@ -1,9 +1,8 @@
 /***********************************************************************
- *                                                                     
+ *
  * $Date$
  * $Author$
  *
- * $Id$
  *
  * Description of file:
  *    FLIR Video Device driver.
@@ -11,7 +10,7 @@
  *
  * Last check-in changelist:
  * $Change$
- * 
+ *
  *
  * Copyright: FLIR Systems AB.  All rights reserved.
  *
@@ -25,7 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/version.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
 #include "../arch/arm/mach-imx/mx6.h"
 #else
 #include "mach/mx6.h"
@@ -40,8 +39,6 @@
 #define FPGA_POWER_EN	((1-1)*32 + 17)
 #define FPA_POWER_EN	((1-1)*32 + 16)
 #define FPGA_IRQ_0		((3-1)*32 + 16)
-
-#define RETAILMSG(a,b) if (a) pr_err  b
 
 // FPGA register 41 bits
 #define FPA_CLCK_ENABLE     0x01

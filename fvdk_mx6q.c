@@ -1,5 +1,5 @@
 /***********************************************************************
- *                                                                     
+ *
  * $Date$
  * $Author$
  *
@@ -11,7 +11,7 @@
  *
  * Last check-in changelist:
  * $Change$
- * 
+ *
  *
  * Copyright: FLIR Systems AB.  All rights reserved.
  *
@@ -26,7 +26,7 @@
 #include <linux/version.h>
 #include <linux/regulator/consumer.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
 #include "../arch/arm/mach-imx/mx6.h"
 #else /*  */
 #include "mach/mx6.h"
@@ -69,7 +69,7 @@ static void BSPFvdPowerUpFPAMX6Q(PFVD_DEV_INFO pDev);
 
 // Local variables
 static u32 fpgaPower = FPGA_POWER_EN;
-static bool fpaIsEnabled = false;
+static bool fpaIsEnabled;
 
 // Code
 void SetupMX6Q(PFVD_DEV_INFO pDev)

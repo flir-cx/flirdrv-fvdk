@@ -2,10 +2,10 @@
  * @file   roco_header.c
  * @author Svangård <bo.svangard@flir.com>
  * @date   Fri Feb 20 15:27:01 2015
- * 
+ *
  * @brief  Functions for reading header data from SPI flash on ROCO
- * 
- * 
+ *
+ *
  */
 
 #include "flir_kernel_os.h"
@@ -13,18 +13,18 @@
 #include "roco_header.h"
 #include <linux/mtd/mtd.h>
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 3, 0)
 int mtd_read(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen,
-	     u_char * buf)
+	     u_char *buf)
 {
 	*retlen = 0;
 	return -1;
 };
 #endif
 
-/** 
- * Read header from spi device 
- * 
+/**
+ * Read header from spi device
+ *
  * rxbuf - allocated buffer the size of HEADER_LENGTH
  * @return header data on success, else NULL
  */
@@ -47,12 +47,12 @@ int read_header(struct mtd_info *mtd, unsigned char *rxbuf)
 	return ret;
 }
 
-/** 
+/**
  * Print generic header with pr_err
- * 
- * @param pGen 
+ *
+ * @param pGen
  */
-void prerr_generic_header(GENERIC_FPGA_T * pGen)
+void prerr_generic_header(GENERIC_FPGA_T *pGen)
 {
 /* Print generic header information */
 	pr_err("\n");
@@ -79,12 +79,12 @@ void prerr_generic_header(GENERIC_FPGA_T * pGen)
 	pr_err("\n");
 }
 
-/** 
+/**
  * Print specific header with pr_err
- * 
- * @param pSpec 
+ *
+ * @param pSpec
  */
-void prerr_specific_header(BXAB_FPGA_T * pSpec)
+void prerr_specific_header(BXAB_FPGA_T *pSpec)
 {
 /* Print specific header information */
 	pr_err("\n");
@@ -115,17 +115,17 @@ void prerr_specific_header(BXAB_FPGA_T * pSpec)
 	pr_err("\n");
 }
 
-/** 
+/**
  * extract generic header and specific header to their structs
- * 
+ *
  * @param rxbuf buffer containing the header raw data
  * @param pGen generic header struct
  * @param pSpec  specific header struct
- * 
+ *
  * @return 0 on success
  */
-int extract_headers(unsigned char *rxbuf, GENERIC_FPGA_T * pGen,
-		    BXAB_FPGA_T * pSpec)
+int extract_headers(unsigned char *rxbuf, GENERIC_FPGA_T *pGen,
+		    BXAB_FPGA_T *pSpec)
 {
 	memcpy(pGen, rxbuf, sizeof(GENERIC_FPGA_T));
 
@@ -139,11 +139,11 @@ int extract_headers(unsigned char *rxbuf, GENERIC_FPGA_T * pGen,
 	return 0;
 }
 
-/** 
-* Read data from SPI Device, 
-* 
-* @param rxbuf 
-* 
+/**
+* Read data from SPI Device,
+*
+* @param rxbuf
+*
 * @return 0 on success, <0 on error
 */
 int read_spi_header(unsigned char *rxbuf)

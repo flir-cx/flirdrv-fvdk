@@ -1,17 +1,16 @@
 /***********************************************************************
- *                                                                     
+ *
  * $Date$
  * $Author$
  *
- * $Id$
- *
+  *
  * Description of file:
  *    FLIR Video Device driver.
  *    General hw dependent functions
  *
  * Last check-in changelist:
  * $Change$
- * 
+ *
  *
  * Copyright: FLIR Systems AB.  All rights reserved.
  *
@@ -25,11 +24,11 @@
 #include <linux/platform_device.h>
 #include <linux/version.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
 /* Taken from the old mx51.h which is no more */
 #define MX51_CS1_BASE_ADDR             0xb8000000
 #define MX51_CS2_BASE_ADDR             0xc0000000
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
 #include "../arch/arm/mach-imx/mx51.h"
 #else
 #include "mach/mx51.h"

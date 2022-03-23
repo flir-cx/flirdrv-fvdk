@@ -1,10 +1,10 @@
 /***********************************************************************
- *                                                                     
+ *
  * Project: Balthazar
  * $Date$
  * $Author$
  *
- * $Id$
+ *
  *
  * Description of file:
  *    FLIR Video Device driver.
@@ -12,7 +12,7 @@
  *
  * Last check-in changelist:
  * $Change$
- * 
+ *
  *
  * Copyright: FLIR Systems AB.  All rights reserved.
  *
@@ -71,7 +71,7 @@ BOOL GetMainboardVersion(PFVD_DEV_INFO pDev, int *article, int *revision)
 		msgs[0].buf = &addr;
 		msgs[1].flags = I2C_M_RD | I2C_M_NOSTART;
 		msgs[1].len = sizeof(HWrev);
-		msgs[1].buf = (UCHAR *) & HWrev;
+		msgs[1].buf = (UCHAR *) &HWrev;
 		addr = 0x40;
 
 		ret = i2c_transfer(adap, msgs, 2);
@@ -94,7 +94,7 @@ BOOL GetMainboardVersion(PFVD_DEV_INFO pDev, int *article, int *revision)
 #define FW_DIR "FLIR/"
 
 // Code
-PUCHAR getFPGAData(PFVD_DEV_INFO pDev, ULONG * size, char *pHeader)
+PUCHAR getFPGAData(PFVD_DEV_INFO pDev, ULONG *size, char *pHeader)
 {
 	GENERIC_FPGA_T *pGen;
 	BXAB_FPGA_T *pSpec;
@@ -119,34 +119,34 @@ PUCHAR getFPGAData(PFVD_DEV_INFO pDev, ULONG * size, char *pHeader)
 	err = request_firmware(&pFW, pDev->filename, &pDev->pLinuxDevice->dev);
 	if (err) {
 		pr_err("Failed to get file %s\n", pDev->filename);
-		return (NULL);
+		return NULL;
 	}
 
 	pr_err("Got %d bytes of firmware from %s\n", pFW->size, pDev->filename);
 
 	/* Read generic header */
 	if (pFW->size < sizeof(GENERIC_FPGA_T)) {
-		return (NULL);
+		return NULL;
 	}
 	pGen = (GENERIC_FPGA_T *) pFW->data;
 	if (pGen->headerrev > GENERIC_REV) {
-		return (NULL);
+		return NULL;
 	}
 	if (pGen->spec_size > 1024) {
-		return (NULL);
+		return NULL;
 	}
 
 	/* Read specific part */
 	if (pFW->size < (sizeof(GENERIC_FPGA_T) + pGen->spec_size)) {
-		return (NULL);
+		return NULL;
 	}
-	pSpec = (BXAB_FPGA_T *) & pFW->data[sizeof(GENERIC_FPGA_T)];
+	pSpec = (BXAB_FPGA_T *) &pFW->data[sizeof(GENERIC_FPGA_T)];
 
 	/* Set FW size */
 	*size = pFW->size - sizeof(GENERIC_FPGA_T) - pGen->spec_size;
 
 	memcpy(pHeader, pFW->data, sizeof(GENERIC_FPGA_T) + pGen->spec_size);
-	return ((PUCHAR) & pFW->data[sizeof(GENERIC_FPGA_T) + pGen->spec_size]);
+	return ((PUCHAR) &pFW->data[sizeof(GENERIC_FPGA_T) + pGen->spec_size]);
 }
 
 void freeFpgaData(void)
@@ -177,7 +177,7 @@ struct spi_board_info chip = {
 	.mode = SPI_MODE_0,
 };
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
 #define tms(x) ((long int)ktime_to_ms(x))
 #define gettime(tp) (*(tp) = ktime_get())
 #else
@@ -193,7 +193,7 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char *szFileName)
 	int ret;
 	struct spi_master *pspim;
 	struct spi_device *pspid;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
 	ktime_t t[10];
 #else
 	struct timeval t[10];

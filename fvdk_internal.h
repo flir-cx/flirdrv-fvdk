@@ -1,5 +1,5 @@
 /***********************************************************************
- *                                                                     
+ *
  * Project: Balthazar
  * $Date$
  * $Author$
@@ -12,7 +12,7 @@
  *
  * Last check-in changelist:
  * $Change$
- * 
+ *
  *
  * Copyright: FLIR Systems AB.  All rights reserved.
  *
@@ -43,16 +43,16 @@ typedef struct __FVD_DEV_INFO {
 	char *filename;
 
 	// CPU specific function pointers
-	 BOOL(*pSetupGpioAccess) (struct __FVD_DEV_INFO * pDev);
-	void (*pCleanupGpio)(struct __FVD_DEV_INFO * pDev);
-	 BOOL(*pGetPinDone) (struct __FVD_DEV_INFO * pDev);
-	 BOOL(*pGetPinStatus) (struct __FVD_DEV_INFO * pDev);
-	 BOOL(*pGetPinReady) (struct __FVD_DEV_INFO * pDev);
-	 DWORD(*pPutInProgrammingMode) (struct __FVD_DEV_INFO * pDev);
-	void (*pBSPFvdPowerUp)(struct __FVD_DEV_INFO * pDev, BOOL restart);
-	void (*pBSPFvdPowerDown)(struct __FVD_DEV_INFO * pDev);
-	void (*pBSPFvdPowerDownFPA)(struct __FVD_DEV_INFO * pDev);
-	void (*pBSPFvdPowerUpFPA)(struct __FVD_DEV_INFO * pDev);
+	BOOL(*pSetupGpioAccess) (struct __FVD_DEV_INFO *pDev);
+	void (*pCleanupGpio)(struct __FVD_DEV_INFO *pDev);
+	BOOL(*pGetPinDone) (struct __FVD_DEV_INFO *pDev);
+	BOOL(*pGetPinStatus) (struct __FVD_DEV_INFO *pDev);
+	BOOL(*pGetPinReady) (struct __FVD_DEV_INFO *pDev);
+	DWORD(*pPutInProgrammingMode) (struct __FVD_DEV_INFO *pDev);
+	void (*pBSPFvdPowerUp)(struct __FVD_DEV_INFO *pDev, BOOL restart);
+	void (*pBSPFvdPowerDown)(struct __FVD_DEV_INFO *pDev);
+	void (*pBSPFvdPowerDownFPA)(struct __FVD_DEV_INFO *pDev);
+	void (*pBSPFvdPowerUpFPA)(struct __FVD_DEV_INFO *pDev);
 
 	//GPIOs
 	int program_gpio;
@@ -119,7 +119,7 @@ void SetupMX6S_ec501(PFVD_DEV_INFO pDev);
 // Function prototypes for common FVD functions
 DWORD CheckFPGA(PFVD_DEV_INFO pDev);
 DWORD LoadFPGA(PFVD_DEV_INFO pDev, char *szFileName);
-PUCHAR getFPGAData(PFVD_DEV_INFO pDev, ULONG * size, char *out_revision);
+PUCHAR getFPGAData(PFVD_DEV_INFO pDev, ULONG *size, char *out_revision);
 void freeFpgaData(void);
 BOOL GetMainboardVersion(PFVD_DEV_INFO pDev, int *article, int *revision);
 
