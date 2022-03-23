@@ -55,15 +55,22 @@ typedef struct __FVD_DEV_INFO {
 	void (*pBSPFvdPowerDownFPA)(struct __FVD_DEV_INFO *pDev);
 	void (*pBSPFvdPowerUpFPA)(struct __FVD_DEV_INFO *pDev);
 
-	//GPIOs
+	// GPIOs
 	int program_gpio;
 	int init_gpio;
 	int conf_done_gpio;
 	int ready_gpio;
+
 	int spi_sclk_gpio;
 	int spi_mosi_gpio;
 	int spi_miso_gpio;
 	int spi_cs_gpio;
+
+	// GPIOS altera fpga
+	int pin_fpga_ce_n;
+	int pin_fpga_config_n;
+	int pin_fpga_conf_done;
+	int pin_fpga_status_n;
 
 #ifdef CONFIG_OF
 	struct device_node *np;
@@ -116,6 +123,7 @@ void SetupMX6S(PFVD_DEV_INFO pDev);
 void SetupMX6Q(PFVD_DEV_INFO pDev);
 void SetupMX6S_ec101(PFVD_DEV_INFO pDev);
 void SetupMX6S_ec501(PFVD_DEV_INFO pDev);
+void Setup_FLIR_EOCO(PFVD_DEV_INFO pDev);
 
 // Function prototypes for common FVD functions
 DWORD CheckFPGA(PFVD_DEV_INFO pDev);

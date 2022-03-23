@@ -85,78 +85,21 @@ MODULE_PARM_DESC(lock_timeout, "Mutex timeout in ms");
 
 // Code
 
-#if KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
-static int read_proc(struct seq_file *m, void *v);
-static int fvd_proc_open(struct inode *inode, struct file *file);
-
-#if KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE
-static const struct proc_ops fvd_proc_ops = {
-	.proc_open = fvd_proc_open,
-	.proc_read = seq_read,
-	.proc_lseek = seq_lseek,
-	.proc_release = single_release,
-};
-#else
-static const struct file_operations fvd_proc_fops = {
-	.owner = THIS_MODULE,
-	.open = fvd_proc_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-#endif
-
-static int fvd_proc_open(struct inode *inode, struct file *file)
+static int mutex_show(struct device *dev,
+		      struct device_attribute *attr,
+		      char *buf)
 {
-	return single_open(file, read_proc, PDE_DATA(inode));
-}
-
-static int read_proc(struct seq_file *m, void *v)
-{
-
-	PFVD_DEV_INFO pdev = (PFVD_DEV_INFO) m->private;
-
-	seq_printf(m,
-		   "FPGA file    : %s\n"
-		   "Device mutex : %d (%d fails)\n"
-		   "Lepton mutex : %d (%d fails)\n"
-		   "Exec mutex   : %d (%d fails)\n",
-		   pdev->filename,
-		   pdev->iCtrMuDevice, pdev->iFailMuDevice,
-		   pdev->iCtrMuLepton, pdev->iFailMuLepton,
-		   pdev->iCtrMuExecute, pdev->iFailMuExecute);
-
-	return 0;
-}
-
-#else
-
-// Put data into the proc fs file.
-static int FVD_procfs_read(char *page, char **start, off_t offset,
-			   int page_size, int *eof, void *data)
-{
-	PFVD_DEV_INFO pdev = (PFVD_DEV_INFO) data;
-	int len;
-
-	if (offset > 0) {
-		*eof = 1;
-		return 0;
-	}
-
-	len = snprintf(page, page_size,
+	return sprintf(buf,
 		       "FPGA file    : %s\n"
 		       "Device mutex : %d (%d fails)\n"
 		       "Lepton mutex : %d (%d fails)\n"
 		       "Exec mutex   : %d (%d fails)\n",
-		       pdev->filename,
-		       pdev->iCtrMuDevice, pdev->iFailMuDevice,
-		       pdev->iCtrMuLepton, pdev->iFailMuLepton,
-		       pdev->iCtrMuExecute, pdev->iFailMuExecute);
-
-	*eof = 1;
-	return len;
+		       gpDev->filename,
+		       gpDev->iCtrMuDevice, gpDev->iFailMuDevice,
+		       gpDev->iCtrMuLepton, gpDev->iFailMuLepton,
+		       gpDev->iCtrMuExecute, gpDev->iFailMuExecute);
 }
-#endif
+static DEVICE_ATTR_RO(mutex);
 
 static ssize_t suspend_store(struct device *dev,
 			     struct device_attribute *attr,
@@ -190,6 +133,7 @@ static DEVICE_ATTR(resume, 0200, NULL, resume_store);
 static struct attribute *fvd_attrs[] = {
 	&dev_attr_resume.attr,
 	&dev_attr_suspend.attr,
+	&dev_attr_mutex.attr,
 	NULL
 };
 
@@ -218,9 +162,7 @@ static int FVD_mmap(struct file *filep, struct vm_area_struct *vma)
 
 	if (size > blobsize)
 		return -EINVAL;
-	if (remap_pfn_range
-	    (vma, vma->vm_start, __pa(gpBlob) >> PAGE_SHIFT, size,
-	     vma->vm_page_prot))
+	if (remap_pfn_range(vma, vma->vm_start, __pa(gpBlob) >> PAGE_SHIFT, size, vma->vm_page_prot))
 		return -EAGAIN;
 	return 0;
 }
@@ -275,47 +217,37 @@ static int fvdk_probe(struct platform_device *pdev)
 {
 	int ret;
 
-	pr_debug("Probing FVDK driver\n");
 	ret = misc_register(&fvdk_miscdev);
 	if (ret) {
-		pr_err("Failed to register miscdev for FVDK driver\n");
-		return ret;
+		pr_err("%s: Failed to register miscdev for FVDK driver\n", __func__);
+		goto ERROR_MISC_REGISTER;
 	}
+
 #ifdef CONFIG_OF
-	gpDev->pLinuxDevice->dev.of_node =
-	    of_find_compatible_node(NULL, NULL, "flir,fvd");
-	if (of_machine_is_compatible("fsl,imx6dl-ec101"))
+	gpDev->pLinuxDevice->dev.of_node = of_find_compatible_node(NULL, NULL, "flir,fvd");
+	if (of_machine_is_compatible("fsl,imx6dl-ec101")) {
 		SetupMX6S_ec101(gpDev);
-	else if (of_machine_is_compatible("fsl,imx6dl-ec501"))
+	} else if (of_machine_is_compatible("fsl,imx6dl-ec501")) {
 		SetupMX6S_ec501(gpDev);
-	else
+	} else if (of_machine_is_compatible("fsl,imx6qp-eoco")) {
+		pr_info("EOCO Hardware...\n");
+		Setup_FLIR_EOCO(gpDev);
+	} else
 #endif
-		if (cpu_is_imx6s())
+		if (cpu_is_imx6s()) //AX8
 			SetupMX6S(gpDev);
-		else if (cpu_is_imx6q())
+		else if (cpu_is_imx6q()) //T1K
 			SetupMX6Q(gpDev);
 		else {
-			pr_err("FVD: Error: Unkown Hardware\n");
-			return -4;
+			pr_err("%s: Unknown Hardware\n", __func__);
+			goto ERROR_UNKNOWN_HARDWARE;
 		}
 
 	// DDK not used as DLL to avoid compatibility issues between fvd.dll and OS image
 	if (!gpDev->pSetupGpioAccess(gpDev)) {
-		pr_err("Error setting up GPIO\n");
-		return -5;
+		pr_err("%s: Error setting up GPIO\n", __func__);
+		goto ERROR_GPIO_SETUP;
 	}
-
-	/* Setup /proc read only file system entry. */
-#if KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE
-	gpDev->proc = proc_create_data("fvdk", 0, NULL, &fvd_proc_ops, gpDev);
-#elif KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
-	gpDev->proc = proc_create_data("fvdk", 0, NULL, &fvd_proc_fops, gpDev);
-#else
-	gpDev->proc =
-	    create_proc_read_entry("fvdk", 0, NULL, FVD_procfs_read, gpDev);
-#endif
-	if (gpDev->proc == NULL)
-		pr_err("failed to add proc fs entry\n");
 
 #if KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
 	ret = sysfs_create_group(&pdev->dev.kobj, &fvd_groups);
@@ -323,19 +255,25 @@ static int fvdk_probe(struct platform_device *pdev)
 		pr_err("failed to add sys fs entry\n");
 
 #endif
+
 	sema_init(&gpDev->muDevice, 1);
 	sema_init(&gpDev->muLepton, 1);
 	sema_init(&gpDev->muExecute, 1);
 	sema_init(&gpDev->muStandby, 1);
 
 	return 0;
+
+ERROR_GPIO_SETUP:
+ERROR_UNKNOWN_HARDWARE:
+	misc_deregister(&fvdk_miscdev);
+ERROR_MISC_REGISTER:
+	return -1;
 }
 
 static int fvdk_remove(struct platform_device *pdev)
 {
-	pr_info("Removing FVDK driver\n");
+	gpDev->pCleanupGpio(gpDev);
 	misc_deregister(&fvdk_miscdev);
-
 	return 0;
 }
 
@@ -357,12 +295,6 @@ static struct platform_driver fvdk_driver = {
 static int __init FVD_Init(void)
 {
 	int retval = -1;
-
-	// Check that we are not already initiated
-	if (gpDev) {
-		pr_err("FVD already initialized\n");
-		return 0;
-	}
 
 	// Allocate (and zero-initiate) our control structure.
 	gpDev = (PFVD_DEV_INFO) kzalloc(sizeof(FVD_DEV_INFO), GFP_KERNEL);
@@ -405,22 +337,16 @@ EXIT_OUT:
 
 static void __exit FVD_Deinit(void)
 {
-	// make sure this is a valid context
-	// if the device is running, stop it
-	if (gpDev != NULL) {
-		gpDev->pBSPFvdPowerDown(gpDev);
-		gpDev->pCleanupGpio(gpDev);
+	gpDev->pBSPFvdPowerDown(gpDev);
+	gpDev->pCleanupGpio(gpDev);
+	platform_driver_unregister(&fvdk_driver);
+	platform_device_unregister(gpDev->pLinuxDevice);
+	kfree(gpDev);
+	gpDev = NULL;
 
-		platform_driver_unregister(&fvdk_driver);
-		platform_device_unregister(gpDev->pLinuxDevice);
-
-		kfree(gpDev);
-		gpDev = NULL;
-		remove_proc_entry("fvdk", NULL);
-		if (gpBlob) {
-			kfree(gpBlob);
-			gpBlob = NULL;
-		}
+	if (gpBlob) {
+		kfree(gpBlob);
+		gpBlob = NULL;
 	}
 }
 
