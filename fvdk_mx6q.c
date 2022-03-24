@@ -3,7 +3,6 @@
  * $Date$
  * $Author$
  *
- * $Id$
  *
  * Description of file:
  *    FLIR Video Device driver.
@@ -26,7 +25,7 @@
 #include <linux/version.h>
 #include <linux/regulator/consumer.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+#if KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
 #include "../arch/arm/mach-imx/mx6.h"
 #else /*  */
 #include "mach/mx6.h"
@@ -98,22 +97,22 @@ BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev)
 	GetMainboardVersion(pDev, &article, &revision);
 	if (article == ROCO_ARTNO && revision == 1)
 		fpgaPower = FPGA_POWER_EN_ROCO_A;
-	if (gpio_is_valid(FPGA_CE) == 0) {
+	if (gpio_is_valid(FPGA_CE) == 0)
 		pr_err("FpgaCE can not be used\n");
-	} else {
+	else
 		gpio_request(FPGA_CE, "FpgaCE");
-	}
+
 	if (gpio_is_valid(FPGA_CONF_DONE) == 0) {
 		pr_err("FpgaConfDone can not be used\n");
 	} else {
 		gpio_request(FPGA_CONF_DONE, "FpgaConfDone");
 		gpio_direction_input(FPGA_CONF_DONE);
 	}
-	if (gpio_is_valid(FPGA_CONFIG) == 0) {
+	if (gpio_is_valid(FPGA_CONFIG) == 0)
 		pr_err("FpgaConfig can not be used\n");
-	} else {
+	else
 		gpio_request(FPGA_CONFIG, "FpgaConfig");
-	}
+
 	if (gpio_is_valid(FPGA_STATUS) == 0) {
 		pr_err("FpgaStatus can not be used\n");
 	} else {
@@ -126,11 +125,11 @@ BOOL SetupGpioAccessMX6Q(PFVD_DEV_INFO pDev)
 		gpio_request(FPGA_READY, "FpgaReady");
 		gpio_direction_input(FPGA_READY);
 	}
-	if (gpio_is_valid(fpgaPower) == 0) {
+	if (gpio_is_valid(fpgaPower) == 0)
 		pr_err("FpgaPowerEn can not be used\n");
-	} else {
+	else
 		gpio_request(fpgaPower, "FpgaPowerEn");
-	}
+
 
 	//Pins already configured in bootloader
 	gpio_direction_output(FPGA_CE, 0);
@@ -275,6 +274,7 @@ void BSPFvdPowerDownMX6Q(PFVD_DEV_INFO pDev)
 void BSPFvdPowerDownFPAMX6Q(PFVD_DEV_INFO pDev)
 {
 	int ret;
+
 	if (IS_ERR(pDev->reg_mems) || IS_ERR(pDev->reg_detector) ||
 	    IS_ERR(pDev->reg_3v15_fpa) || IS_ERR(pDev->reg_4v0_fpa))
 		return;
@@ -289,12 +289,13 @@ void BSPFvdPowerDownFPAMX6Q(PFVD_DEV_INFO pDev)
 	ret |= regulator_disable(pDev->reg_4v0_fpa);
 
 	if (ret)
-		dev_err(&pDev->pLinuxDevice->dev, "can't disable fpa \n");
+		dev_err(&pDev->pLinuxDevice->dev, "can't disable fpa\n");
 }
 
 void BSPFvdPowerUpFPAMX6Q(PFVD_DEV_INFO pDev)
 {
 	int ret;
+
 	if (IS_ERR(pDev->reg_mems) || IS_ERR(pDev->reg_detector) ||
 	    IS_ERR(pDev->reg_3v15_fpa) || IS_ERR(pDev->reg_4v0_fpa))
 		return;
@@ -310,5 +311,5 @@ void BSPFvdPowerUpFPAMX6Q(PFVD_DEV_INFO pDev)
 	ret |= regulator_enable(pDev->reg_mems);
 
 	if (ret)
-		dev_err(&pDev->pLinuxDevice->dev, "can't enable fpa \n");
+		dev_err(&pDev->pLinuxDevice->dev, "can't enable fpa\n");
 }

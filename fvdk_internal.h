@@ -4,7 +4,6 @@
  * $Date$
  * $Author$
  *
- * $Id$
  *
  * Description of file:
  *    FLIR Video Device driver.
@@ -43,12 +42,13 @@ typedef struct __FVD_DEV_INFO {
 	char *filename;
 
 	// CPU specific function pointers
-	BOOL(*pSetupGpioAccess) (struct __FVD_DEV_INFO *pDev);
+	BOOL (*pSetupGpioAccess)(struct __FVD_DEV_INFO *pDev);
 	void (*pCleanupGpio)(struct __FVD_DEV_INFO *pDev);
-	BOOL(*pGetPinDone) (struct __FVD_DEV_INFO *pDev);
-	BOOL(*pGetPinStatus) (struct __FVD_DEV_INFO *pDev);
-	BOOL(*pGetPinReady) (struct __FVD_DEV_INFO *pDev);
-	DWORD(*pPutInProgrammingMode) (struct __FVD_DEV_INFO *pDev);
+	BOOL (*pGetPinDone)(struct __FVD_DEV_INFO *pDev);
+	BOOL (*pGetPinStatus)(struct __FVD_DEV_INFO *pDev);
+	BOOL (*pGetPinReady)(struct __FVD_DEV_INFO *pDev);
+
+	DWORD(*pPutInProgrammingMode)(struct __FVD_DEV_INFO *pDev);
 	void (*pBSPFvdPowerUp)(struct __FVD_DEV_INFO *pDev, BOOL restart);
 	void (*pBSPFvdPowerDown)(struct __FVD_DEV_INFO *pDev);
 	void (*pBSPFvdPowerDownFPA)(struct __FVD_DEV_INFO *pDev);
@@ -123,12 +123,13 @@ PUCHAR getFPGAData(PFVD_DEV_INFO pDev, ULONG *size, char *out_revision);
 void freeFpgaData(void);
 BOOL GetMainboardVersion(PFVD_DEV_INFO pDev, int *article, int *revision);
 
-#define 	FVD_BSP_PIBB        0
-#define 	FVD_BSP_ASBB	    1	// Astra + Nettan
+#define	FVD_BSP_PIBB  0
+#define	FVD_BSP_ASBB  1	// Astra + Nettan
 
-#define ROCO_ARTNO			198752	//T198752 ROCO  mainboard article no (Rocky)
-#define EC101_ARTNO			199051	//T199051 ec101  mainboard article no (Evander)
+#define ROCO_ARTNO 198752	//T198752 ROCO  mainboard article no (Rocky)
+#define EC101_ARTNO 199051	//T199051 ec101  mainboard article no (Evander)
 
 enum locks { LNONE, LDRV, LEXEC, LLEPT };
 
 #endif /* __FVD_INTERNAL_H__ */
+

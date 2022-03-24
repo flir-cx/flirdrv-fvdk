@@ -1,11 +1,5 @@
 /**
- * @file   roco_header.c
- * @author Svangård <bo.svangard@flir.com>
- * @date   Fri Feb 20 15:27:01 2015
- *
  * @brief  Functions for reading header data from SPI flash on ROCO
- *
- *
  */
 
 #include "flir_kernel_os.h"
@@ -13,7 +7,7 @@
 #include "roco_header.h"
 #include <linux/mtd/mtd.h>
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 3, 0)
+#if KERNEL_VERSION(3, 3, 0) > LINUX_VERSION_CODE
 int mtd_read(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen,
 	     u_char *buf)
 {
@@ -140,19 +134,19 @@ int extract_headers(unsigned char *rxbuf, GENERIC_FPGA_T *pGen,
 }
 
 /**
-* Read data from SPI Device,
-*
-* @param rxbuf
-*
-* @return 0 on success, <0 on error
-*/
+ * Read data from SPI Device,
+ *
+ * @param rxbuf
+ *
+ * @return 0 on success, <0 on error
+ */
 int read_spi_header(unsigned char *rxbuf)
 {
 	struct mtd_info *mtd = get_mtd_device(NULL, MTD_DEVICE);
 	int ret;
 
 	if (IS_ERR(mtd)) {
-		pr_err("Failed to get mtd device \n");
+		pr_err("Failed to get mtd device\n");
 		return PTR_ERR(mtd);
 	}
 

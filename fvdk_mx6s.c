@@ -24,7 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/version.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+#if KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
 #include "../arch/arm/mach-imx/mx6.h"
 #else
 #include "mach/mx6.h"

@@ -3,7 +3,6 @@
  * $Date$
  * $Author$
  *
- * $Id$
  *
  * Description of file:
  *    FLIR Video Device driver.
@@ -32,7 +31,7 @@
 #include <linux/regulator/of_regulator.h>
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+#if KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
 #include "../arch/arm/mach-imx/mx6.h"
 #else /*  */
 #include "mach/mx6.h"
@@ -86,42 +85,42 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 	struct device_node *np = dev->of_node;
 	int ret;
 	int article, revision;
+
 	GetMainboardVersion(pDev, &article, &revision);
 
 	pDev->program_gpio = of_get_named_gpio(np, "fpga-program-gpio", 0);
 	if (gpio_is_valid(pDev->program_gpio)) {
 		ret = devm_gpio_request_one(dev, pDev->program_gpio,
 					    GPIOF_IN, "FPGA program");
-		if (ret) {
+		if (ret)
 			dev_err(dev, "unable to get FPGA program gpio\n");
-		}
 	}
 
 	pDev->init_gpio = of_get_named_gpio(np, "fpga-init-gpio", 0);
 	if (gpio_is_valid(pDev->init_gpio)) {
 		ret = devm_gpio_request_one(dev, pDev->init_gpio,
 					    GPIOF_IN, "FPGA init");
-		if (ret) {
+		if (ret)
 			dev_err(dev, "unable to get FPGA init gpio\n");
-		}
+
 	}
 
 	pDev->conf_done_gpio = of_get_named_gpio(np, "fpga-conf-done-gpio", 0);
 	if (gpio_is_valid(pDev->conf_done_gpio)) {
 		ret = devm_gpio_request_one(dev, pDev->conf_done_gpio,
 					    GPIOF_IN, "FPGA conf done");
-		if (ret) {
+		if (ret)
 			dev_err(dev, "unable to get FPGA conf done gpio\n");
-		}
+
 	}
 
 	pDev->ready_gpio = of_get_named_gpio(np, "fpga-ready-gpio", 0);
 	if (gpio_is_valid(pDev->ready_gpio)) {
 		ret = devm_gpio_request_one(dev, pDev->ready_gpio,
 					    GPIOF_IN, "FPGA ready");
-		if (ret) {
+		if (ret)
 			dev_err(dev, "unable to get FPGA ready gpio\n");
-		}
+
 	}
 
 	/*SPI bus shared with fpga */
@@ -286,6 +285,7 @@ static void reload_fpga(PFVD_DEV_INFO pDev)
 static void enable_fpga_power(PFVD_DEV_INFO pDev)
 {
 	int ret;
+
 	if (IS_ERR(pDev->reg_1v0_fpga) || IS_ERR(pDev->reg_1v2_fpga) ||
 	    IS_ERR(pDev->reg_1v8_fpga) || IS_ERR(pDev->reg_2v5_fpga)
 	    || IS_ERR(pDev->reg_3v15_fpga))
@@ -294,7 +294,7 @@ static void enable_fpga_power(PFVD_DEV_INFO pDev)
 	if (fpgaIsEnabled)
 		return;
 	fpgaIsEnabled = true;
-	dev_dbg(&pDev->pLinuxDevice->dev, "Fpga power enable \n");
+	dev_dbg(&pDev->pLinuxDevice->dev, "Fpga power enable\n");
 
 	ret = regulator_enable(pDev->reg_1v0_fpga);
 	ret |= regulator_enable(pDev->reg_1v8_fpga);
@@ -303,7 +303,7 @@ static void enable_fpga_power(PFVD_DEV_INFO pDev)
 	ret |= regulator_enable(pDev->reg_3v15_fpga);
 
 	if (ret)
-		dev_err(&pDev->pLinuxDevice->dev, "can't enable fpga \n");
+		dev_err(&pDev->pLinuxDevice->dev, "can't enable fpga\n");
 }
 
 void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
@@ -318,7 +318,7 @@ void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
 	if (!fpgaIsEnabled)
 		return;
 	fpgaIsEnabled = false;
-	dev_dbg(&pDev->pLinuxDevice->dev, "Fpga power disable \n");
+	dev_dbg(&pDev->pLinuxDevice->dev, "Fpga power disable\n");
 
 	ret = regulator_disable(pDev->reg_3v15_fpga);
 	ret |= regulator_disable(pDev->reg_2v5_fpga);
@@ -333,7 +333,7 @@ void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
 	pinctrl_select_state(pDev->pinctrl, pDev->pins_idle);
 
 	if (ret)
-		dev_err(&pDev->pLinuxDevice->dev, "can't disable fpga \n");
+		dev_err(&pDev->pLinuxDevice->dev, "can't disable fpga\n");
 }
 
 void BSPFvdPowerDownFPAMX6S(PFVD_DEV_INFO pDev)
@@ -346,29 +346,30 @@ void BSPFvdPowerDownFPAMX6S(PFVD_DEV_INFO pDev)
 	if (!fpaIsEnabled)
 		return;
 	fpaIsEnabled = false;
-	dev_dbg(&pDev->pLinuxDevice->dev, "FPA power disable \n");
+	dev_dbg(&pDev->pLinuxDevice->dev, "FPA power disable\n");
 
 	ret = regulator_disable(pDev->reg_fpa_i2c);
 	ret |= regulator_disable(pDev->reg_4v0_fpa);
 
 	if (ret)
-		dev_err(&pDev->pLinuxDevice->dev, "can't disable fpa \n");
+		dev_err(&pDev->pLinuxDevice->dev, "can't disable fpa\n");
 }
 
 void BSPFvdPowerUpFPAMX6S(PFVD_DEV_INFO pDev)
 {
 	int ret;
+
 	if (IS_ERR(pDev->reg_fpa_i2c) || IS_ERR(pDev->reg_4v0_fpa))
 		return;
 
 	if (fpaIsEnabled)
 		return;
 	fpaIsEnabled = true;
-	dev_dbg(&pDev->pLinuxDevice->dev, "FPA power enable \n");
+	dev_dbg(&pDev->pLinuxDevice->dev, "FPA power enable\n");
 
 	ret = regulator_enable(pDev->reg_4v0_fpa);
 	ret |= regulator_enable(pDev->reg_fpa_i2c);
 
 	if (ret)
-		dev_err(&pDev->pLinuxDevice->dev, "can't enable fpa \n");
+		dev_err(&pDev->pLinuxDevice->dev, "can't enable fpa\n");
 }

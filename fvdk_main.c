@@ -29,7 +29,7 @@
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
 
 bool cpu_is_mx51(void)
 {
@@ -46,7 +46,7 @@ bool cpu_is_imx6q(void)
 	return of_machine_is_compatible("fsl,imx6q");
 }
 
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+#elif KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
 #include "../arch/arm/mach-imx/hardware.h"
 
 #ifndef __devexit
@@ -84,16 +84,16 @@ static int blobsize;
 // Parameters
 
 static int lock_timeout = 3000;
-module_param(lock_timeout, int, S_IRUSR | S_IWUSR);
+module_param(lock_timeout, int, 0600);
 MODULE_PARM_DESC(lock_timeout, "Mutex timeout in ms");
 
 // Code
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+#if KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
 static int read_proc(struct seq_file *m, void *v);
 static int fvd_proc_open(struct inode *inode, struct file *file);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+#if KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE
 static const struct proc_ops fvd_proc_ops = {
 	.proc_open = fvd_proc_open,
 	.proc_read = seq_read,
@@ -119,6 +119,7 @@ static int read_proc(struct seq_file *m, void *v)
 {
 
 	PFVD_DEV_INFO pdev = (PFVD_DEV_INFO) m->private;
+
 	seq_printf(m,
 		   "FPGA file    : %s\n"
 		   "Device mutex : %d (%d fails)\n"
@@ -161,11 +162,12 @@ static int FVD_procfs_read(char *page, char **start, off_t offset,
 }
 #endif
 
-static ssize_t do_suspend(struct device *dev,
-			  struct device_attribute *attr,
-			  const char *buf, size_t count)
+static ssize_t suspend_store(struct device *dev,
+			     struct device_attribute *attr,
+			     const char *buf, size_t count)
 {
 	unsigned long val;
+
 	if (kstrtoul(buf, 0, &val) < 0)
 		return -EINVAL;
 
@@ -173,11 +175,12 @@ static ssize_t do_suspend(struct device *dev,
 	return count;
 }
 
-static ssize_t do_resume(struct device *dev,
-			 struct device_attribute *attr,
-			 const char *buf, size_t count)
+static ssize_t resume_store(struct device *dev,
+			    struct device_attribute *attr,
+			    const char *buf, size_t count)
 {
 	unsigned long val;
+
 	if (kstrtoul(buf, 0, &val) < 0)
 		return -EINVAL;
 
@@ -185,8 +188,8 @@ static ssize_t do_resume(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(suspend, S_IWUSR, NULL, do_suspend);
-static DEVICE_ATTR(resume, S_IWUSR, NULL, do_resume);
+static DEVICE_ATTR(suspend, 0200, NULL, suspend_store);
+static DEVICE_ATTR(resume, 0200, NULL, resume_store);
 
 static struct attribute *fvd_attrs[] = {
 	&dev_attr_resume.attr,
@@ -198,7 +201,7 @@ static const struct attribute_group fvd_groups = {
 	.attrs = fvd_attrs,
 };
 
-static struct file_operations fvd_fops = {
+static const struct file_operations fvd_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = FVD_IOControl,
 	.open = FVD_Open,
@@ -291,16 +294,16 @@ static int fvdk_probe(struct platform_device *pdev)
 		SetupMX6S_ec501(gpDev);
 	else
 #endif
-	if (cpu_is_mx51())
-		SetupMX51(gpDev);
-	else if (cpu_is_imx6s())
-		SetupMX6S(gpDev);
-	else if (cpu_is_imx6q())
-		SetupMX6Q(gpDev);
-	else {
-		pr_err("FVD: Error: Unkown Hardware\n");
-		return -4;
-	}
+		if (cpu_is_mx51())
+			SetupMX51(gpDev);
+		else if (cpu_is_imx6s())
+			SetupMX6S(gpDev);
+		else if (cpu_is_imx6q())
+			SetupMX6Q(gpDev);
+		else {
+			pr_err("FVD: Error: Unkown Hardware\n");
+			return -4;
+		}
 
 	// DDK not used as DLL to avoid compatibility issues between fvd.dll and OS image
 	if (!gpDev->pSetupGpioAccess(gpDev)) {
@@ -309,22 +312,22 @@ static int fvdk_probe(struct platform_device *pdev)
 	}
 
 	/* Setup /proc read only file system entry. */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+#if KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE
 	gpDev->proc = proc_create_data("fvdk", 0, NULL, &fvd_proc_ops, gpDev);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+#elif KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
 	gpDev->proc = proc_create_data("fvdk", 0, NULL, &fvd_proc_fops, gpDev);
 #else
 	gpDev->proc =
 	    create_proc_read_entry("fvdk", 0, NULL, FVD_procfs_read, gpDev);
 #endif
-	if (gpDev->proc == NULL) {
+	if (gpDev->proc == NULL)
 		pr_err("failed to add proc fs entry\n");
-	}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+
+#if KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
 	ret = sysfs_create_group(&pdev->dev.kobj, &fvd_groups);
-	if (ret) {
+	if (ret)
 		pr_err("failed to add sys fs entry\n");
-	}
+
 #endif
 	sema_init(&gpDev->muDevice, 1);
 	sema_init(&gpDev->muLepton, 1);
@@ -360,8 +363,6 @@ static struct platform_driver fvdk_driver = {
 static int __init FVD_Init(void)
 {
 	int retval = -1;
-
-	pr_debug("FVD_Init\n");
 
 	// Check that we are not already initiated
 	if (gpDev) {
@@ -410,8 +411,6 @@ EXIT_OUT:
 
 static void __exit FVD_Deinit(void)
 {
-	pr_info("FVD_Deinit\n");
-
 	// make sure this is a valid context
 	// if the device is running, stop it
 	if (gpDev != NULL) {
@@ -443,6 +442,7 @@ static int FVD_Open(struct inode *inode, struct file *filp)
 {
 
 	int ret = -1;
+
 	static BOOL init;
 	DWORD dwStatus;
 	DWORD timeout = 50;
@@ -560,6 +560,7 @@ DWORD DoIOControl(PFVD_DEV_INFO pDev, DWORD Ioctl, PUCHAR pBuf, PUCHAR pUserBuf)
 			return dwErr;
 		if (!gpDev->fpgaLoaded) {
 			int timeout = 500;
+
 			while (timeout--) {
 				msleep(10);
 				if (gpDev->pGetPinDone(gpDev))
@@ -626,15 +627,9 @@ DWORD DoIOControl(PFVD_DEV_INFO pDev, DWORD Ioctl, PUCHAR pBuf, PUCHAR pUserBuf)
 
 	case IOCTL_FVDK_GET_FPGA_BUF:
 		{
-			BXAB_FPGA_T *pSpec =
-			    (BXAB_FPGA_T *) &pDev->
-			    fpga[sizeof(GENERIC_FPGA_T)];
-			dwErr =
-			    copy_to_user(pUserBuf,
-					 &pDev->fpga[sizeof(GENERIC_FPGA_T) +
-						     sizeof(BXAB_FPGA_T)],
-					 pSpec->noOfBuffers *
-					 sizeof(SDRAM_BUF_T));
+			BXAB_FPGA_T *pSpec = (BXAB_FPGA_T *) &pDev->fpga[sizeof(GENERIC_FPGA_T)];
+
+			dwErr = copy_to_user(pUserBuf, &pDev->fpga[sizeof(GENERIC_FPGA_T) + sizeof(BXAB_FPGA_T)], pSpec->noOfBuffers * sizeof(SDRAM_BUF_T));
 		}
 		break;
 

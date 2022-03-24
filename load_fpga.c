@@ -125,21 +125,21 @@ PUCHAR getFPGAData(PFVD_DEV_INFO pDev, ULONG *size, char *pHeader)
 	pr_err("Got %d bytes of firmware from %s\n", pFW->size, pDev->filename);
 
 	/* Read generic header */
-	if (pFW->size < sizeof(GENERIC_FPGA_T)) {
+	if (pFW->size < sizeof(GENERIC_FPGA_T))
 		return NULL;
-	}
+
 	pGen = (GENERIC_FPGA_T *) pFW->data;
-	if (pGen->headerrev > GENERIC_REV) {
+	if (pGen->headerrev > GENERIC_REV)
 		return NULL;
-	}
-	if (pGen->spec_size > 1024) {
+
+	if (pGen->spec_size > 1024)
 		return NULL;
-	}
+
 
 	/* Read specific part */
-	if (pFW->size < (sizeof(GENERIC_FPGA_T) + pGen->spec_size)) {
+	if (pFW->size < (sizeof(GENERIC_FPGA_T) + pGen->spec_size))
 		return NULL;
-	}
+
 	pSpec = (BXAB_FPGA_T *) &pFW->data[sizeof(GENERIC_FPGA_T)];
 
 	/* Set FW size */
@@ -160,8 +160,8 @@ DWORD CheckFPGA(PFVD_DEV_INFO pDev)
 {
 	DWORD res = ERROR_SUCCESS;
 
-	if (0 == pDev->pGetPinDone(pDev)) {
-		if (0 == pDev->pGetPinStatus(pDev))
+	if (pDev->pGetPinDone(pDev) == 0) {
+		if (pDev->pGetPinStatus(pDev) == 0)
 			res = ERROR_NO_INIT_OK;
 		else
 			res = ERROR_NO_CONFIG_DONE;
@@ -177,7 +177,7 @@ struct spi_board_info chip = {
 	.mode = SPI_MODE_0,
 };
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
 #define tms(x) ((long int)ktime_to_ms(x))
 #define gettime(tp) (*(tp) = ktime_get())
 #else
@@ -193,7 +193,7 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char *szFileName)
 	int ret;
 	struct spi_master *pspim;
 	struct spi_device *pspid;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
 	ktime_t t[10];
 #else
 	struct timeval t[10];
@@ -203,7 +203,7 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char *szFileName)
 
 	// read file
 	fpgaBin = getFPGAData(pDev, &size, pDev->fpga);
-	if (NULL == fpgaBin) {
+	if (fpgaBin == NULL) {
 		pr_err("LoadFPGA: Error reading %s\n", szFileName);
 		return ERROR_IO_DEVICE;
 	}
