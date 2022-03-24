@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #ifndef ROCO_HEADER_H
 #define ROCO_HEADER_H
 
