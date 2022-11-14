@@ -208,6 +208,13 @@ void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart)
 {
 	enable_fpga_power(pDev);
 
+        // BC-236, FVD_Open (fvdc_main) sometimes fails (ec101).
+	// When failure occurs, the "read_spi_header()" indicate failure
+	// probably the pBSPFvdPowerUp (this routine) needs some settle
+	// time before we start to use HW depending on this voltage
+	// The problem has not been observed on ec501, but you never know...
+	msleep(100);
+
 	if (restart)
 		reload_fpga(pDev);
 

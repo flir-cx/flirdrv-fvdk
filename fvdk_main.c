@@ -398,10 +398,10 @@ static int FVD_Open(struct inode *inode, struct file *filp)
 		memcpy(gpDev->fpga, rxbuf, sizeof(gpDev->fpga));
 		ret = 0;
 
+		init = TRUE;   // only if successful open		
 END:
 		vfree(rxbuf);
 		rxbuf = 0;
-		init = TRUE;
 
 	} else {
 		gpDev->pBSPFvdPowerUp(gpDev, FALSE);

@@ -229,6 +229,12 @@ void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart)
 {
 	enable_fpga_power(pDev);
 
+        // BC-236, FVD_Open (fvdc_main) sometimes fails.
+	// When failure occurs, the "read_spi_header()" indicate failure
+	// probably the pBSPFvdPowerUp (this routine) needs some settle
+	// time before we start to use HW depending on this voltage
+	msleep(100);
+
 	if (restart)
 		reload_fpga(pDev);
 
