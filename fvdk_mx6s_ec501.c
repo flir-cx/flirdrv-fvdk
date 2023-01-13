@@ -213,7 +213,7 @@ void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart)
 	// probably the pBSPFvdPowerUp (this routine) needs some settle
 	// time before we start to use HW depending on this voltage
 	// The problem has not been observed on ec501, but you never know...
-	msleep(100);
+	msleep(300);
 
 	if (restart)
 		reload_fpga(pDev);

@@ -216,7 +216,7 @@ void BSPFvdPowerUpEOCO(PFVD_DEV_INFO pDev, BOOL restart)
 	// probably the pBSPFvdPowerUp (this routine) needs some settle
 	// time before we start to use HW depending on this voltage
 	// The problem has not been observed on eoco, but you never know...
-	msleep(100);
+	msleep(300);
 
 	if (restart)
 		reload_fpga(pDev);
