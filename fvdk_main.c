@@ -229,6 +229,9 @@ static int fvdk_probe(struct platform_device *pdev)
 		SetupMX6S_ec101(gpDev);
 	} else if (of_machine_is_compatible("fsl,imx6dl-ec501")) {
 		SetupMX6S_ec501(gpDev);
+	} else if (of_machine_is_compatible("fsl,imx6qp-ec702")) {
+		pr_info("ec702 hardware...\n");
+		Setup_FLIR_ec702(gpDev);
 	} else if (of_machine_is_compatible("fsl,imx6qp-eoco")) {
 		pr_info("EOCO Hardware...\n");
 		Setup_FLIR_EOCO(gpDev);

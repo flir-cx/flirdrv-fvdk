@@ -84,6 +84,7 @@ typedef struct __FVD_DEV_INFO {
 	struct regulator *reg_fpa_i2c;
 
 	struct regulator *reg_1v0_fpga;
+	struct regulator *reg_1v1_fpga;
 	struct regulator *reg_1v2_fpga;
 	struct regulator *reg_1v8_fpga;
 	struct regulator *reg_2v5_fpga;
@@ -124,6 +125,7 @@ void SetupMX6Q(PFVD_DEV_INFO pDev);
 void SetupMX6S_ec101(PFVD_DEV_INFO pDev);
 void SetupMX6S_ec501(PFVD_DEV_INFO pDev);
 void Setup_FLIR_EOCO(PFVD_DEV_INFO pDev);
+void Setup_FLIR_ec702(PFVD_DEV_INFO pDev);
 
 // Function prototypes for common FVD functions
 DWORD CheckFPGA(PFVD_DEV_INFO pDev);
