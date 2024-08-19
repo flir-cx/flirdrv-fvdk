@@ -201,7 +201,8 @@ static BOOL ec702_setup_gpio_access(PFVD_DEV_INFO pDev)
 
 	if (!ec702_get_pin_done(pDev)) {
 		dev_err(dev, "U-boot FPGA load failed");
-		/* Hold CONFIG_n low */
+		/* Disable FPGA (CE_n=1) and hold CONFIG_n low */
+		(void)gpio_direction_output(pDev->pin_fpga_ce_n, 1);
 		(void)gpio_direction_output(pDev->pin_fpga_config_n, 0);
 	}
 
