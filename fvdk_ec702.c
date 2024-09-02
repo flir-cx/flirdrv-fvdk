@@ -125,6 +125,7 @@ static BOOL ec702_setup_gpio_access(PFVD_DEV_INFO pDev)
 	struct device *dev = &pDev->pLinuxDevice->dev;
 	struct device_node *np = dev->of_node;
 	int result = TRUE;
+	int ret;
 
 	/* Get FPGA gpios */
 	pDev->pin_fpga_ce_n =
@@ -156,46 +157,41 @@ static BOOL ec702_setup_gpio_access(PFVD_DEV_INFO pDev)
 	pDev->spi_cs_gpio = of_get_named_gpio(np, "spi-cs-gpio", 0);
 
 	/* FPA regulators */
-	pDev->reg_4v0_fpa = devm_regulator_get(dev, "4V0_fpa");
+	pDev->reg_4v0_fpa = devm_regulator_get(dev, "fpa");
 	if (IS_ERR(pDev->reg_4v0_fpa)) {
-		dev_err(dev, "cannot get regulator 4V0_fpa\n");
+		dev_err(dev, "cannot get regulator supply fpa\n");
 		result = FALSE;
 	}
 
-	pDev->reg_fpa_i2c = devm_regulator_get(dev, "fpa_i2c");
-	if (IS_ERR(pDev->reg_fpa_i2c)) {
-		dev_err(dev, "cannot get regulator fpa_i2c\n");
-		result = FALSE;
-	}
 
 	/* FPGA regulators */
-	pDev->reg_1v1_fpga = devm_regulator_get(dev, "DA9063_BPRO");
+	pDev->reg_1v1_fpga = devm_regulator_get(dev, "1v1_fpga");
 	if (IS_ERR(pDev->reg_1v1_fpga)) {
-		dev_err(dev, "cannot get regulator DA9063_BPRO");
+		dev_err(dev, "cannot get regulator supply 1v1_fpga");
 		result = FALSE;
 	}
 
-	pDev->reg_1v2_fpga = devm_regulator_get(dev, "DA9063_PERI_SW");
+	pDev->reg_1v2_fpga = devm_regulator_get(dev, "1v2_fpga");
 	if (IS_ERR(pDev->reg_1v2_fpga)) {
-		dev_err(dev, "can't get regulator DA9063_PERI_SW");
+		dev_err(dev, "can't get regulator supply 1v2_fpga");
 		result = FALSE;
 	}
 
-	pDev->reg_1v8_fpga = devm_regulator_get(dev, "DA9063_CORE_SW");
+	pDev->reg_1v8_fpga = devm_regulator_get(dev, "1v8_fpga");
 	if (IS_ERR(pDev->reg_1v8_fpga)) {
-		dev_err(dev, "cannot get regulator DA9063_CORE_SW");
+		dev_err(dev, "cannot get regulator supply 1v8_fpga");
 		result = FALSE;
 	}
 
-	pDev->reg_2v5_fpga = devm_regulator_get(dev, "DA9063_BMEM");
+	pDev->reg_2v5_fpga = devm_regulator_get(dev, "2v5_fpga");
 	if (IS_ERR(pDev->reg_2v5_fpga)) {
-		dev_err(dev, "cannot get regulator DA9063_BMEM");
+		dev_err(dev, "cannot get regulator supply 2v5_fpga");
 		result = FALSE;
 	}
 
-	pDev->reg_3v15_fpga = devm_regulator_get(dev, "DA9063_LDO8");
+	pDev->reg_3v15_fpga = devm_regulator_get(dev, "3v15_fpga");
 	if (IS_ERR(pDev->reg_3v15_fpga)) {
-		dev_err(dev, "cannot get regulator DA9063_LDO8");
+		dev_err(dev, "cannot get regulator supply 3v15_fpga");
 		result = FALSE;
 	}
 
@@ -245,8 +241,10 @@ static BOOL ec702_setup_gpio_access(PFVD_DEV_INFO pDev)
 
 static void ec702_cleanup_gpio(PFVD_DEV_INFO pDev)
 {
-	/* devm does the cleanup */
-	(void)ec702_set_fpga_power(pDev, 0);
+	int ret;
+
+	ec702_set_fpga_power(pDev, 0);
+
 	if (spi_dev) {
 		spi_dev_put(spi_dev);
 		spi_dev = NULL;
@@ -623,21 +621,17 @@ static int ec702_set_fpa_power(PFVD_DEV_INFO pDev, BOOL enable)
 
 	if (enable && !ec702_fpa_powered) {
 		dev_dbg(dev, "fpa power enable\n");
-		ret = ec702_reg_enable(dev, pDev->reg_4v0_fpa, TRUE, "4V0_fpa");
-		if (ret != 0)
-			goto out_err;
-		ret = ec702_reg_enable(dev, pDev->reg_fpa_i2c, TRUE, "fpa_i2c");
-		if (ret != 0)
-			goto out_err;
+		ret = regulator_enable(pDev->reg_4v0_fpa);
+		/* ret = ec702_reg_enable(dev, pDev->reg_4v0_fpa, TRUE, "4V0_fpa"); */
+		/* if (ret != 0) */
+		/* 	goto out_err; */
 		ec702_fpa_powered = TRUE;
 	} else if (!enable && ec702_fpa_powered) {
 		dev_dbg(dev, "fpa power disable\n");
-		ret = ec702_reg_enable(dev, pDev->reg_fpa_i2c, FALSE, "fpa_i2c");
-		if (ret != 0)
-			goto out_err;
-		ret = ec702_reg_enable(dev, pDev->reg_4v0_fpa, FALSE, "4V0_fpa");
-		if (ret != 0)
-			goto out_err;
+		ret = regulator_disable(pDev->reg_4v0_fpa);
+		/* ret = ec702_reg_enable(dev, pDev->reg_4v0_fpa, FALSE, "4V0_fpa"); */
+		/* if (ret != 0) */
+		/* 	goto out_err; */
 		ec702_fpa_powered = FALSE;
 	}
 
