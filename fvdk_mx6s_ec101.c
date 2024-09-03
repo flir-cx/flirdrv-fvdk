@@ -45,79 +45,83 @@ static inline int pinctrl_select_state(struct pinctrl *p,
 #endif /*  */
 
 // Local prototypes
-static BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev);
-static void CleanupGpioMX6S(PFVD_DEV_INFO pDev);
-static BOOL GetPinDoneMX6S(PFVD_DEV_INFO pDev);
-static BOOL GetPinStatusMX6S(PFVD_DEV_INFO pDev);
-static BOOL GetPinReadyMX6S(PFVD_DEV_INFO pDev);
-static DWORD PutInProgrammingModeMX6S(PFVD_DEV_INFO);
-static void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev);
-static void BSPFvdPowerDownFPAMX6S(PFVD_DEV_INFO pDev);
-static void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart);
-static void BSPFvdPowerUpFPAMX6S(PFVD_DEV_INFO pDev);
-static void enable_fpga_power(PFVD_DEV_INFO pDev);
-static void reload_fpga(PFVD_DEV_INFO pDev);
+static BOOL SetupGpioAccessMX6S(struct device *dev);
+static void CleanupGpioMX6S(struct device *dev);
+static BOOL GetPinDoneMX6S(struct device *dev);
+static BOOL GetPinStatusMX6S(struct device *dev);
+static BOOL GetPinReadyMX6S(struct device *dev);
+static DWORD PutInProgrammingModeMX6S(struct device *dev);
+static void BSPFvdPowerDownMX6S(struct device *dev);
+static void BSPFvdPowerDownFPAMX6S(struct device *dev);
+static void BSPFvdPowerUpMX6S(struct device *dev, BOOL restart);
+static void BSPFvdPowerUpFPAMX6S(struct device *dev);
+static void enable_fpga_power(struct device *dev);
+static void reload_fpga(struct device *dev);
 
 // Local variables
 static bool fpaIsEnabled;
 static bool fpgaIsEnabled;
 
 // Code
-void SetupMX6S_ec101(PFVD_DEV_INFO pDev)
+void SetupMX6S_ec101(struct device *dev)
 {
-	pDev->pSetupGpioAccess = SetupGpioAccessMX6S;
-	pDev->pCleanupGpio = CleanupGpioMX6S;
-	pDev->pGetPinDone = GetPinDoneMX6S;
-	pDev->pGetPinStatus = GetPinStatusMX6S;
-	pDev->pGetPinReady = GetPinReadyMX6S;
-	pDev->pPutInProgrammingMode = PutInProgrammingModeMX6S;
-	pDev->pBSPFvdPowerUp = BSPFvdPowerUpMX6S;
-	pDev->pBSPFvdPowerDown = BSPFvdPowerDownMX6S;
-	pDev->pBSPFvdPowerDownFPA = BSPFvdPowerDownFPAMX6S;
-	pDev->pBSPFvdPowerUpFPA = BSPFvdPowerUpFPAMX6S;
+	struct fvdkdata *data = dev_get_drvdata(dev);
+	PFVD_DEV_INFO pDev = &data->pDev;
+
+	data->ops.pSetupGpioAccess = SetupGpioAccessMX6S;
+	data->ops.pCleanupGpio = CleanupGpioMX6S;
+	data->ops.pGetPinDone = GetPinDoneMX6S;
+	data->ops.pGetPinStatus = GetPinStatusMX6S;
+	data->ops.pGetPinReady = GetPinReadyMX6S;
+	data->ops.pPutInProgrammingMode = PutInProgrammingModeMX6S;
+	data->ops.pBSPFvdPowerUp = BSPFvdPowerUpMX6S;
+	data->ops.pBSPFvdPowerDown = BSPFvdPowerDownMX6S;
+	data->ops.pBSPFvdPowerDownFPA = BSPFvdPowerDownFPAMX6S;
+	data->ops.pBSPFvdPowerUpFPA = BSPFvdPowerUpFPAMX6S;
 	pDev->iI2c = 2;		// Main i2c bus
 	pDev->spi_flash = true;
 }
 
-BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
+BOOL SetupGpioAccessMX6S(struct device *dev)
 {
 #ifdef CONFIG_OF
-	struct device *dev = &pDev->pLinuxDevice->dev;
+	struct fvdkdata *data = dev_get_drvdata(dev);
+	PFVD_DEV_INFO pDev = &data->pDev;
 	struct device_node *np = dev->of_node;
 	int ret;
 	int article, revision;
 
-	GetMainboardVersion(pDev, &article, &revision);
+	GetMainboardVersion(dev, &article, &revision);
 
-	pDev->program_gpio = of_get_named_gpio(np, "fpga-program-gpio", 0);
-	if (gpio_is_valid(pDev->program_gpio)) {
-		ret = devm_gpio_request_one(dev, pDev->program_gpio,
+	data->fpga_pins.program_gpio = of_get_named_gpio(np, "fpga-program-gpio", 0);
+	if (gpio_is_valid(data->fpga_pins.program_gpio)) {
+		ret = devm_gpio_request_one(dev, data->fpga_pins.program_gpio,
 					    GPIOF_IN, "FPGA program");
 		if (ret)
 			dev_err(dev, "unable to get FPGA program gpio\n");
 	}
 
-	pDev->init_gpio = of_get_named_gpio(np, "fpga-init-gpio", 0);
-	if (gpio_is_valid(pDev->init_gpio)) {
-		ret = devm_gpio_request_one(dev, pDev->init_gpio,
+	data->fpga_pins.init_gpio = of_get_named_gpio(np, "fpga-init-gpio", 0);
+	if (gpio_is_valid(data->fpga_pins.init_gpio)) {
+		ret = devm_gpio_request_one(dev, data->fpga_pins.init_gpio,
 					    GPIOF_IN, "FPGA init");
 		if (ret)
 			dev_err(dev, "unable to get FPGA init gpio\n");
 
 	}
 
-	pDev->conf_done_gpio = of_get_named_gpio(np, "fpga-conf-done-gpio", 0);
-	if (gpio_is_valid(pDev->conf_done_gpio)) {
-		ret = devm_gpio_request_one(dev, pDev->conf_done_gpio,
+	data->fpga_pins.conf_done_gpio = of_get_named_gpio(np, "fpga-conf-done-gpio", 0);
+	if (gpio_is_valid(data->fpga_pins.conf_done_gpio)) {
+		ret = devm_gpio_request_one(dev, data->fpga_pins.conf_done_gpio,
 					    GPIOF_IN, "FPGA conf done");
 		if (ret)
 			dev_err(dev, "unable to get FPGA conf done gpio\n");
 
 	}
 
-	pDev->ready_gpio = of_get_named_gpio(np, "fpga-ready-gpio", 0);
-	if (gpio_is_valid(pDev->ready_gpio)) {
-		ret = devm_gpio_request_one(dev, pDev->ready_gpio,
+	data->fpga_pins.ready_gpio = of_get_named_gpio(np, "fpga-ready-gpio", 0);
+	if (gpio_is_valid(data->fpga_pins.ready_gpio)) {
+		ret = devm_gpio_request_one(dev, data->fpga_pins.ready_gpio,
 					    GPIOF_IN, "FPGA ready");
 		if (ret)
 			dev_err(dev, "unable to get FPGA ready gpio\n");
@@ -131,67 +135,67 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 	pDev->spi_cs_gpio = of_get_named_gpio(np, "spi-cs-gpio", 0);
 
 /* FPA regulators */
-	pDev->reg_4v0_fpa = devm_regulator_get(dev, "4V0_fpa");
-	if (IS_ERR(pDev->reg_4v0_fpa))
+	data->reg_4v0_fpa = devm_regulator_get(dev, "4V0_fpa");
+	if (IS_ERR(data->reg_4v0_fpa))
 		dev_err(dev, "can't get regulator 4V0_fpa");
 
-	pDev->reg_fpa_i2c = devm_regulator_get(dev, "fpa_i2c");
-	if (IS_ERR(pDev->reg_fpa_i2c))
+	data->reg_fpa_i2c = devm_regulator_get(dev, "fpa_i2c");
+	if (IS_ERR(data->reg_fpa_i2c))
 		dev_err(dev, "can't get regulator fpa_i2c\n");
 
 /* FPGA regulators */
-	pDev->reg_1v0_fpga = devm_regulator_get(dev, "DA9063_BPRO");
-	if (IS_ERR(pDev->reg_1v0_fpga))
+	data->reg_1v0_fpga = devm_regulator_get(dev, "DA9063_BPRO");
+	if (IS_ERR(data->reg_1v0_fpga))
 		dev_err(dev, "can't get regulator DA9063_BPRO");
 
-	pDev->reg_1v2_fpga = devm_regulator_get(dev, "DA9063_CORE_SW");
-	if (IS_ERR(pDev->reg_1v2_fpga))
+	data->reg_1v2_fpga = devm_regulator_get(dev, "DA9063_CORE_SW");
+	if (IS_ERR(data->reg_1v2_fpga))
 		dev_err(dev, "can't get regulator DA9063_CORE_SW");
 
-	pDev->reg_1v8_fpga = devm_regulator_get(dev, "DA9063_PERI_SW");
-	if (IS_ERR(pDev->reg_1v8_fpga))
+	data->reg_1v8_fpga = devm_regulator_get(dev, "DA9063_PERI_SW");
+	if (IS_ERR(data->reg_1v8_fpga))
 		dev_err(dev, "can't get regulator DA9063_PERI_SW");
 
 	if (article == EC101_ARTNO && revision == 3) {	//revC
-		pDev->reg_2v5_fpga = devm_regulator_get(dev, "DA9063_BMEM");
-		if (IS_ERR(pDev->reg_2v5_fpga))
+		data->reg_2v5_fpga = devm_regulator_get(dev, "DA9063_BMEM");
+		if (IS_ERR(data->reg_2v5_fpga))
 			dev_err(dev, "can't get regulator DA9063_BMEM");
 
-		pDev->reg_3v15_fpga = devm_regulator_get(dev, "DA9063_LDO10");
-		if (IS_ERR(pDev->reg_3v15_fpga))
+		data->reg_3v15_fpga = devm_regulator_get(dev, "DA9063_LDO10");
+		if (IS_ERR(data->reg_3v15_fpga))
 			dev_err(dev, "can't get regulator DA9063_LDO10");
 	} else {
-		pDev->reg_2v5_fpga = devm_regulator_get(dev, "DA9063_LDO10");
-		if (IS_ERR(pDev->reg_2v5_fpga))
+		data->reg_2v5_fpga = devm_regulator_get(dev, "DA9063_LDO10");
+		if (IS_ERR(data->reg_2v5_fpga))
 			dev_err(dev, "can't get regulator DA9063_LDO10");
 
-		pDev->reg_3v15_fpga = devm_regulator_get(dev, "DA9063_LDO8");
-		if (IS_ERR(pDev->reg_3v15_fpga))
+		data->reg_3v15_fpga = devm_regulator_get(dev, "DA9063_LDO8");
+		if (IS_ERR(data->reg_3v15_fpga))
 			dev_err(dev, "can't get regulator DA9063_LDO8");
 	}
 
-	if (!GetPinDoneMX6S(pDev)) {
+	if (!GetPinDoneMX6S(dev)) {
 		dev_err(dev, "U-boot FPGA load failed");
-		gpio_direction_output(pDev->program_gpio, 0);
-		gpio_direction_output(pDev->init_gpio, 0);
+		gpio_direction_output(data->fpga_pins.program_gpio, 0);
+		gpio_direction_output(data->fpga_pins.init_gpio, 0);
 	}
 
-	pDev->pinctrl = devm_pinctrl_get(dev);
-	if (IS_ERR(pDev->pinctrl))
+	data->pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(data->pinctrl))
 		dev_err(dev, "can't get pinctrl");
 
-	pDev->pins_default = pinctrl_lookup_state(pDev->pinctrl, "spi-default");
-	if (IS_ERR(pDev->pins_default))
-		dev_err(dev, "can't get default pins %p %d", pDev->pinctrl,
-			(int)(pDev->pins_default));
+	data->pins_default = pinctrl_lookup_state(data->pinctrl, "spi-default");
+	if (IS_ERR(data->pins_default))
+		dev_err(dev, "can't get default pins %p %d", data->pinctrl,
+			(int)(data->pins_default));
 
-	pDev->pins_idle = pinctrl_lookup_state(pDev->pinctrl, "spi-idle");
-	if (IS_ERR(pDev->pins_idle))
-		dev_err(dev, "can't get idle pins %p %d", pDev->pinctrl,
-			(int)(pDev->pins_idle));
+	data->pins_idle = pinctrl_lookup_state(data->pinctrl, "spi-idle");
+	if (IS_ERR(data->pins_idle))
+		dev_err(dev, "can't get idle pins %p %d", data->pinctrl,
+			(int)(data->pins_idle));
 
 	//fpga power already on, but need to sync regulator_enable
-	enable_fpga_power(pDev);
+	enable_fpga_power(dev);
 
 	of_node_put(np);
 #endif
@@ -199,35 +203,39 @@ BOOL SetupGpioAccessMX6S(PFVD_DEV_INFO pDev)
 	return TRUE;
 }
 
-void CleanupGpioMX6S(PFVD_DEV_INFO pDev)
+void CleanupGpioMX6S(struct device *dev)
 {
 	//devm does the cleanup
 }
 
-BOOL GetPinDoneMX6S(PFVD_DEV_INFO pDev)
+BOOL GetPinDoneMX6S(struct device *dev)
 {
-	return (gpio_get_value(pDev->conf_done_gpio) != 0);
+	struct fvdkdata *data = dev_get_drvdata(dev);
+
+	return (gpio_get_value(data->fpga_pins.conf_done_gpio) != 0);
 }
 
 //no status pin on ec101
-BOOL GetPinStatusMX6S(PFVD_DEV_INFO pDev)
+BOOL GetPinStatusMX6S(struct device *dev)
 {
 	return 1;
 }
 
-BOOL GetPinReadyMX6S(PFVD_DEV_INFO pDev)
+BOOL GetPinReadyMX6S(struct device *dev)
 {
-	return (gpio_get_value(pDev->ready_gpio) != 0);
+	struct fvdkdata *data = dev_get_drvdata(dev);
+
+	return (gpio_get_value(data->fpga_pins.ready_gpio) != 0);
 }
 
-DWORD PutInProgrammingModeMX6S(PFVD_DEV_INFO pDev)
+DWORD PutInProgrammingModeMX6S(struct device *dev)
 {
 	return 1;
 }
 
-void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart)
+void BSPFvdPowerUpMX6S(struct device *dev, BOOL restart)
 {
-	enable_fpga_power(pDev);
+	enable_fpga_power(dev);
 
         // BC-236, FVD_Open (fvdc_main) sometimes fails.
 	// When failure occurs, the "read_spi_header()" indicate failure
@@ -236,17 +244,17 @@ void BSPFvdPowerUpMX6S(PFVD_DEV_INFO pDev, BOOL restart)
 	msleep(300);
 
 	if (restart)
-		reload_fpga(pDev);
+		reload_fpga(dev);
 
 }
 
-static void reload_fpga(PFVD_DEV_INFO pDev)
+static void reload_fpga(struct device *dev)
 {
-
+	struct fvdkdata *data = dev_get_drvdata(dev);
+	PFVD_DEV_INFO pDev = &data->pDev;
 	int timeout = 100;
-	struct device *dev = &pDev->pLinuxDevice->dev;
 
-	pinctrl_select_state(pDev->pinctrl, pDev->pins_idle);
+	pinctrl_select_state(data->pinctrl, data->pins_idle);
 	//gpio requested in spi-imx
 	gpio_direction_input(pDev->spi_cs_gpio);
 
@@ -264,119 +272,125 @@ static void reload_fpga(PFVD_DEV_INFO pDev)
 		gpio_direction_input(pDev->spi_miso_gpio);
 
 	msleep(1);
-	gpio_direction_input(pDev->program_gpio);
-	gpio_direction_input(pDev->init_gpio);
+	gpio_direction_input(data->fpga_pins.program_gpio);
+	gpio_direction_input(data->fpga_pins.init_gpio);
 
 	while (timeout--) {
 		msleep(5);
-		if (GetPinDoneMX6S(pDev))
+		if (GetPinDoneMX6S(dev))
 			break;
 	}
 	msleep(5);
 
-	if (!GetPinDoneMX6S(pDev)) {
+	if (!GetPinDoneMX6S(dev)) {
 		dev_err(dev, "FPGA load failed");
-		gpio_direction_output(pDev->program_gpio, 0);
-		gpio_direction_output(pDev->init_gpio, 0);
+		gpio_direction_output(data->fpga_pins.program_gpio, 0);
+		gpio_direction_output(data->fpga_pins.init_gpio, 0);
 	} else
 		dev_info(dev, "FPGA loaded in %d ms\n", (100 - timeout) * 5);
 
 	gpio_direction_output(pDev->spi_cs_gpio, 1);
 	// Set SPI as SPI
-	pinctrl_select_state(pDev->pinctrl, pDev->pins_default);
+	pinctrl_select_state(data->pinctrl, data->pins_default);
 	gpio_free(pDev->spi_sclk_gpio);
 	gpio_free(pDev->spi_mosi_gpio);
 	gpio_free(pDev->spi_miso_gpio);
 }
 
-static void enable_fpga_power(PFVD_DEV_INFO pDev)
+static void enable_fpga_power(struct device *dev)
 {
+	struct fvdkdata *data = dev_get_drvdata(dev);
 	int ret;
 
-	if (IS_ERR(pDev->reg_1v0_fpga) || IS_ERR(pDev->reg_1v2_fpga) ||
-	    IS_ERR(pDev->reg_1v8_fpga) || IS_ERR(pDev->reg_2v5_fpga)
-	    || IS_ERR(pDev->reg_3v15_fpga))
+	if (IS_ERR(data->reg_1v0_fpga) || IS_ERR(data->reg_1v2_fpga) ||
+	    IS_ERR(data->reg_1v8_fpga) || IS_ERR(data->reg_2v5_fpga)
+	    || IS_ERR(data->reg_3v15_fpga))
 		return;
 
 	if (fpgaIsEnabled)
 		return;
 	fpgaIsEnabled = true;
-	dev_dbg(&pDev->pLinuxDevice->dev, "Fpga power enable\n");
+	dev_dbg(dev, "Fpga power enable\n");
 
-	ret = regulator_enable(pDev->reg_1v0_fpga);
-	ret |= regulator_enable(pDev->reg_1v8_fpga);
-	ret |= regulator_enable(pDev->reg_1v2_fpga);
-	ret |= regulator_enable(pDev->reg_2v5_fpga);
-	ret |= regulator_enable(pDev->reg_3v15_fpga);
+	ret = regulator_enable(data->reg_1v0_fpga);
+	ret |= regulator_enable(data->reg_1v8_fpga);
+	ret |= regulator_enable(data->reg_1v2_fpga);
+	ret |= regulator_enable(data->reg_2v5_fpga);
+	ret |= regulator_enable(data->reg_3v15_fpga);
 
 	if (ret)
-		dev_err(&pDev->pLinuxDevice->dev, "can't enable fpga\n");
+		dev_err(dev, "can't enable fpga\n");
 }
 
-void BSPFvdPowerDownMX6S(PFVD_DEV_INFO pDev)
+void BSPFvdPowerDownMX6S(struct device *dev)
 {
+	struct fvdkdata *data = dev_get_drvdata(dev);
+	PFVD_DEV_INFO pDev = &data->pDev;
 	int ret;
+
 	// Disable FPGA
-	if (IS_ERR(pDev->reg_1v0_fpga) || IS_ERR(pDev->reg_1v2_fpga) ||
-	    IS_ERR(pDev->reg_1v8_fpga) || IS_ERR(pDev->reg_2v5_fpga)
-	    || IS_ERR(pDev->reg_3v15_fpga))
+	if (IS_ERR(data->reg_1v0_fpga) || IS_ERR(data->reg_1v2_fpga) ||
+	    IS_ERR(data->reg_1v8_fpga) || IS_ERR(data->reg_2v5_fpga)
+	    || IS_ERR(data->reg_3v15_fpga))
 		return;
 
 	if (!fpgaIsEnabled)
 		return;
 	fpgaIsEnabled = false;
-	dev_dbg(&pDev->pLinuxDevice->dev, "Fpga power disable\n");
+	dev_dbg(dev, "Fpga power disable\n");
 
-	ret = regulator_disable(pDev->reg_3v15_fpga);
-	ret |= regulator_disable(pDev->reg_2v5_fpga);
-	ret |= regulator_disable(pDev->reg_1v2_fpga);
-	ret |= regulator_disable(pDev->reg_1v8_fpga);
-	ret |= regulator_disable(pDev->reg_1v0_fpga);
+	ret = regulator_disable(data->reg_3v15_fpga);
+	ret |= regulator_disable(data->reg_2v5_fpga);
+	ret |= regulator_disable(data->reg_1v2_fpga);
+	ret |= regulator_disable(data->reg_1v8_fpga);
+	ret |= regulator_disable(data->reg_1v0_fpga);
 
-	gpio_direction_input(pDev->program_gpio);
-	gpio_direction_output(pDev->init_gpio, 0);
+	gpio_direction_input(data->fpga_pins.program_gpio);
+	gpio_direction_output(data->fpga_pins.init_gpio, 0);
 	gpio_direction_input(pDev->spi_cs_gpio);
 
-	pinctrl_select_state(pDev->pinctrl, pDev->pins_idle);
+	pinctrl_select_state(data->pinctrl, data->pins_idle);
 
 	if (ret)
-		dev_err(&pDev->pLinuxDevice->dev, "can't disable fpga\n");
+		dev_err(dev, "can't disable fpga\n");
 }
 
-void BSPFvdPowerDownFPAMX6S(PFVD_DEV_INFO pDev)
+void BSPFvdPowerDownFPAMX6S(struct device *dev)
 {
+	struct fvdkdata *data = dev_get_drvdata(dev);
 	int ret;
 
-	if (IS_ERR(pDev->reg_fpa_i2c) || IS_ERR(pDev->reg_4v0_fpa))
+	if (IS_ERR(data->reg_fpa_i2c) || IS_ERR(data->reg_4v0_fpa))
 		return;
 
 	if (!fpaIsEnabled)
 		return;
 	fpaIsEnabled = false;
-	dev_dbg(&pDev->pLinuxDevice->dev, "FPA power disable\n");
+	dev_dbg(dev, "FPA power disable\n");
 
-	ret = regulator_disable(pDev->reg_fpa_i2c);
-	ret |= regulator_disable(pDev->reg_4v0_fpa);
+	ret = regulator_disable(data->reg_fpa_i2c);
+	ret |= regulator_disable(data->reg_4v0_fpa);
 
 	if (ret)
-		dev_err(&pDev->pLinuxDevice->dev, "can't disable fpa\n");
+		dev_err(dev, "can't disable fpa\n");
 }
 
-void BSPFvdPowerUpFPAMX6S(PFVD_DEV_INFO pDev)
+void BSPFvdPowerUpFPAMX6S(struct device *dev)
 {
+	struct fvdkdata *data = dev_get_drvdata(dev);
 	int ret;
 
-	if (IS_ERR(pDev->reg_fpa_i2c) || IS_ERR(pDev->reg_4v0_fpa))
+	if (IS_ERR(data->reg_fpa_i2c) || IS_ERR(data->reg_4v0_fpa))
 		return;
 
 	if (fpaIsEnabled)
 		return;
 	fpaIsEnabled = true;
-	dev_dbg(&pDev->pLinuxDevice->dev, "FPA power enable\n");
+	dev_dbg(dev, "FPA power enable\n");
 
-	ret = regulator_enable(pDev->reg_4v0_fpa);
-	ret |= regulator_enable(pDev->reg_fpa_i2c);
+	ret = regulator_enable(data->reg_4v0_fpa);
+	ret |= regulator_enable(data->reg_fpa_i2c);
 
 	if (ret)
-		dev_err(&pDev->pLinuxDevice->dev, "can't enable fpa\n");
+		dev_err(dev, "can't enable fpa\n");
 }

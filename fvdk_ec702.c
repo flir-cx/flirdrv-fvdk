@@ -31,23 +31,24 @@
 /* Micron-st specific */
 #define SPINOR_OP_MT_WR_ANY_REG	0x81	/* Write volatile register */
 
-static BOOL ec702_setup_gpio_access(PFVD_DEV_INFO pDev);
-static void ec702_cleanup_gpio(PFVD_DEV_INFO pDev);
-static BOOL ec702_get_pin_done(PFVD_DEV_INFO pDev);
-static BOOL ec702_get_pin_status(PFVD_DEV_INFO pDev);
-static BOOL ec702_get_pin_ready(PFVD_DEV_INFO pDev);
-static DWORD ec702_enter_programming_mode(PFVD_DEV_INFO pDev);
+static BOOL ec702_setup_gpio_access(struct device *dev);
+static void ec702_cleanup_gpio(struct device *dev);
+static BOOL ec702_get_pin_done(struct device *dev);
+static BOOL ec702_get_pin_status(struct device *dev);
+static BOOL ec702_get_pin_ready(struct device *dev);
+static DWORD ec702_enter_programming_mode(struct device *dev);
 
-static void ec702_bsp_fvd_power_up(PFVD_DEV_INFO pDev, BOOL restart);
-static void ec702_bsp_fvd_power_down(PFVD_DEV_INFO pDev);
-static void ec702_bsp_fvd_power_up_fpa(PFVD_DEV_INFO pDev);
-static void ec702_bsp_fvd_power_down_fpa(PFVD_DEV_INFO pDev);
+static void ec702_bsp_fvd_power_up(struct device *dev, BOOL restart);
+static void ec702_bsp_fvd_power_down(struct device *dev);
+static void ec702_bsp_fvd_power_up_fpa(struct device *dev);
+static void ec702_bsp_fvd_power_down_fpa(struct device *dev);
 
-static int ec702_reload_fpga(PFVD_DEV_INFO pDev);
+static int ec702_reload_fpga(struct device *dev);
 static int ec702_reg_enable(struct device *dev, struct regulator *reg,
 	BOOL enable, const char *reg_name);
-static int ec702_set_fpa_power(PFVD_DEV_INFO pDev, BOOL enable);
-static int ec702_set_fpga_power(PFVD_DEV_INFO pDev, int enable);
+static int ec702_set_fpa_power(struct device *dev, BOOL enable);
+static int ec702_set_fpga_power(struct device *dev, int enable);
+static int set_spi_bus_active(struct device *dev, BOOL enable);
 
 static int ec702_fpa_powered = 0;
 static int ec702_fpga_powered = 0;
@@ -82,18 +83,22 @@ static struct spi_device *get_spi_device_from_node_prop(struct device *dev)
 	return NULL;
 }
 
-void Setup_FLIR_ec702(PFVD_DEV_INFO pDev)
+void Setup_FLIR_ec702(struct device *dev)
 {
-	pDev->pSetupGpioAccess = ec702_setup_gpio_access;
-	pDev->pCleanupGpio = ec702_cleanup_gpio;
-	pDev->pGetPinDone = ec702_get_pin_done;
-	pDev->pGetPinStatus = ec702_get_pin_status;
-	pDev->pGetPinReady = ec702_get_pin_ready;
-	pDev->pPutInProgrammingMode = ec702_enter_programming_mode;
-	pDev->pBSPFvdPowerUp = ec702_bsp_fvd_power_up;
-	pDev->pBSPFvdPowerDown = ec702_bsp_fvd_power_down;
-	pDev->pBSPFvdPowerUpFPA = ec702_bsp_fvd_power_up_fpa;
-	pDev->pBSPFvdPowerDownFPA = ec702_bsp_fvd_power_down_fpa;
+	struct fvdkdata *data = dev_get_drvdata(dev);
+	PFVD_DEV_INFO pDev = &data->pDev;
+
+	data->ops.pSetupGpioAccess = ec702_setup_gpio_access;
+	data->ops.pCleanupGpio = ec702_cleanup_gpio;
+	data->ops.pGetPinDone = ec702_get_pin_done;
+	data->ops.pGetPinStatus = ec702_get_pin_status;
+	data->ops.pGetPinReady = ec702_get_pin_ready;
+	data->ops.pPutInProgrammingMode = ec702_enter_programming_mode;
+	data->ops.pBSPFvdPowerUp = ec702_bsp_fvd_power_up;
+	data->ops.pBSPFvdPowerDown = ec702_bsp_fvd_power_down;
+	data->ops.pBSPFvdPowerUpFPA = ec702_bsp_fvd_power_up_fpa;
+	data->ops.pBSPFvdPowerDownFPA = ec702_bsp_fvd_power_down_fpa;
+
 	pDev->iI2c = 2; /* Main i2c bus */
 	pDev->spi_flash = true;
 
@@ -101,7 +106,7 @@ void Setup_FLIR_ec702(PFVD_DEV_INFO pDev)
 	ec702_fpa_powered = 0;
 	ec702_fpga_powered = 0;
 
-	spi_dev = get_spi_device_from_node_prop(&pDev->pLinuxDevice->dev);
+	spi_dev = get_spi_device_from_node_prop(dev);
 }
 
 #ifdef CONFIG_OF
@@ -120,34 +125,34 @@ static int get_and_request_gpio(struct device *dev,
 	return gpio;
 }
 
-static BOOL ec702_setup_gpio_access(PFVD_DEV_INFO pDev)
+static BOOL ec702_setup_gpio_access(struct device *dev)
 {
-	struct device *dev = &pDev->pLinuxDevice->dev;
+	struct fvdkdata *data = dev_get_drvdata(dev);
+	PFVD_DEV_INFO pDev = &data->pDev;
 	struct device_node *np = dev->of_node;
 	int result = TRUE;
-	int ret;
 
 	/* Get FPGA gpios */
-	pDev->pin_fpga_ce_n =
+	data->fpga_pins.pin_fpga_ce_n =
 		get_and_request_gpio(dev, np, "fpga_ce_n", GPIOF_OUT_INIT_LOW);
-	if (pDev->pin_fpga_ce_n < 0)
+	if (data->fpga_pins.pin_fpga_ce_n < 0)
 		result = FALSE;
-	pDev->pin_fpga_config_n =
+	data->fpga_pins.pin_fpga_config_n =
 		get_and_request_gpio(dev, np, "fpga_config_n", GPIOF_IN);
-	if (pDev->pin_fpga_config_n < 0)
+	if (data->fpga_pins.pin_fpga_config_n < 0)
 		result = FALSE;
-	pDev->pin_fpga_conf_done =
+	data->fpga_pins.pin_fpga_conf_done =
 		get_and_request_gpio(dev, np, "fpga_conf_done", GPIOF_IN);
-	if (pDev->pin_fpga_conf_done < 0)
+	if (data->fpga_pins.pin_fpga_conf_done < 0)
 		result = FALSE;
-	pDev->pin_fpga_status_n =
+	data->fpga_pins.pin_fpga_status_n =
 		get_and_request_gpio(dev, np, "fpga_status_n", GPIOF_IN);
-	if (pDev->pin_fpga_status_n < 0)
+	if (data->fpga_pins.pin_fpga_status_n < 0)
 		result = FALSE;
 
-	pDev->ready_gpio =
+	data->fpga_pins.ready_gpio =
 		get_and_request_gpio(dev, np, "fpga-ready-gpio", GPIOF_IN);
-	if (pDev->ready_gpio < 0)
+	if (data->fpga_pins.ready_gpio < 0)
 		result = FALSE;
 
 	/* Get SPI bus gpios */
@@ -157,73 +162,73 @@ static BOOL ec702_setup_gpio_access(PFVD_DEV_INFO pDev)
 	pDev->spi_cs_gpio = of_get_named_gpio(np, "spi-cs-gpio", 0);
 
 	/* FPA regulators */
-	pDev->reg_4v0_fpa = devm_regulator_get(dev, "fpa");
-	if (IS_ERR(pDev->reg_4v0_fpa)) {
+	data->reg_4v0_fpa = devm_regulator_get(dev, "fpa");
+	if (IS_ERR(data->reg_4v0_fpa)) {
 		dev_err(dev, "cannot get regulator supply fpa\n");
 		result = FALSE;
 	}
 
 
 	/* FPGA regulators */
-	pDev->reg_1v1_fpga = devm_regulator_get(dev, "1v1_fpga");
-	if (IS_ERR(pDev->reg_1v1_fpga)) {
+	data->reg_1v1_fpga = devm_regulator_get(dev, "1v1_fpga");
+	if (IS_ERR(data->reg_1v1_fpga)) {
 		dev_err(dev, "cannot get regulator supply 1v1_fpga");
 		result = FALSE;
 	}
 
-	pDev->reg_1v2_fpga = devm_regulator_get(dev, "1v2_fpga");
-	if (IS_ERR(pDev->reg_1v2_fpga)) {
+	data->reg_1v2_fpga = devm_regulator_get(dev, "1v2_fpga");
+	if (IS_ERR(data->reg_1v2_fpga)) {
 		dev_err(dev, "can't get regulator supply 1v2_fpga");
 		result = FALSE;
 	}
 
-	pDev->reg_1v8_fpga = devm_regulator_get(dev, "1v8_fpga");
-	if (IS_ERR(pDev->reg_1v8_fpga)) {
+	data->reg_1v8_fpga = devm_regulator_get(dev, "1v8_fpga");
+	if (IS_ERR(data->reg_1v8_fpga)) {
 		dev_err(dev, "cannot get regulator supply 1v8_fpga");
 		result = FALSE;
 	}
 
-	pDev->reg_2v5_fpga = devm_regulator_get(dev, "2v5_fpga");
-	if (IS_ERR(pDev->reg_2v5_fpga)) {
+	data->reg_2v5_fpga = devm_regulator_get(dev, "2v5_fpga");
+	if (IS_ERR(data->reg_2v5_fpga)) {
 		dev_err(dev, "cannot get regulator supply 2v5_fpga");
 		result = FALSE;
 	}
 
-	pDev->reg_3v15_fpga = devm_regulator_get(dev, "3v15_fpga");
-	if (IS_ERR(pDev->reg_3v15_fpga)) {
+	data->reg_3v15_fpga = devm_regulator_get(dev, "3v15_fpga");
+	if (IS_ERR(data->reg_3v15_fpga)) {
 		dev_err(dev, "cannot get regulator supply 3v15_fpga");
 		result = FALSE;
 	}
 
-	if (!ec702_get_pin_done(pDev)) {
+	if (!ec702_get_pin_done(dev)) {
 		dev_err(dev, "U-boot FPGA load failed");
 		/* Disable FPGA (CE_n=1) and hold CONFIG_n low */
-		(void)gpio_direction_output(pDev->pin_fpga_ce_n, 1);
-		(void)gpio_direction_output(pDev->pin_fpga_config_n, 0);
+		gpio_direction_output(data->fpga_pins.pin_fpga_ce_n, 1);
+		gpio_direction_output(data->fpga_pins.pin_fpga_config_n, 0);
 	}
 
-	pDev->pinctrl = devm_pinctrl_get(dev);
-	if (IS_ERR(pDev->pinctrl)) {
+	data->pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(data->pinctrl)) {
 		dev_err(dev, "cannot get pinctrl");
 		result = FALSE;
 	}
 
-	pDev->pins_default = pinctrl_lookup_state(pDev->pinctrl, "spi-default");
-	if (IS_ERR(pDev->pins_default)) {
-		dev_err(dev, "cannot get default pins %p %p", pDev->pinctrl,
-			pDev->pins_default);
+	data->pins_default = pinctrl_lookup_state(data->pinctrl, "spi-default");
+	if (IS_ERR(data->pins_default)) {
+		dev_err(dev, "cannot get default pins %p %p", data->pinctrl,
+			data->pins_default);
 		result = FALSE;
 	}
 
-	pDev->pins_idle = pinctrl_lookup_state(pDev->pinctrl, "spi-idle");
-	if (IS_ERR(pDev->pins_idle)) {
-		dev_err(dev, "cannot get idle pins %p %d", pDev->pinctrl,
-			(int)(pDev->pins_idle));
+	data->pins_idle = pinctrl_lookup_state(data->pinctrl, "spi-idle");
+	if (IS_ERR(data->pins_idle)) {
+		dev_err(dev, "cannot get idle pins %p %d", data->pinctrl,
+			(int)(data->pins_idle));
 		result = FALSE;
 	}
 
 	/* fpga power already on, but need to sync regulator_enable */
-	if (ec702_set_fpga_power(pDev, 1) != 0)
+	if (ec702_set_fpga_power(dev, 1) != 0)
 		result = FALSE;
 
 	if (!result)
@@ -239,11 +244,9 @@ static BOOL ec702_setup_gpio_access(PFVD_DEV_INFO pDev)
 }
 #endif
 
-static void ec702_cleanup_gpio(PFVD_DEV_INFO pDev)
+static void ec702_cleanup_gpio(struct device *dev)
 {
-	int ret;
-
-	ec702_set_fpga_power(pDev, 0);
+	ec702_set_fpga_power(dev, 0);
 
 	if (spi_dev) {
 		spi_dev_put(spi_dev);
@@ -251,36 +254,46 @@ static void ec702_cleanup_gpio(PFVD_DEV_INFO pDev)
 	}
 }
 
-static BOOL ec702_get_pin_done(PFVD_DEV_INFO pDev)
+static BOOL ec702_get_pin_done(struct device *dev)
 {
-	return (gpio_get_value(pDev->pin_fpga_conf_done) != 0);
+	struct fvdkdata *data = dev_get_drvdata(dev);
+
+	return (gpio_get_value(data->fpga_pins.pin_fpga_conf_done) != 0);
 }
 
-static BOOL ec702_get_pin_status(PFVD_DEV_INFO pDev)
+static BOOL ec702_get_pin_status(struct device *dev)
 {
+	struct fvdkdata *data = dev_get_drvdata(dev);
+
 	/* Return 1 when not driven low */
-	return (gpio_get_value(pDev->pin_fpga_status_n) != 0);
+	return (gpio_get_value(data->fpga_pins.pin_fpga_status_n) != 0);
 }
 
-static BOOL ec702_get_pin_ready(PFVD_DEV_INFO pDev)
+static BOOL ec702_get_pin_ready(struct device *dev)
 {
-	return (gpio_get_value(pDev->ready_gpio) != 0);
+	struct fvdkdata *data = dev_get_drvdata(dev);
+
+	return (gpio_get_value(data->fpga_pins.ready_gpio) != 0);
 }
 
-static DWORD ec702_enter_programming_mode(PFVD_DEV_INFO pDev)
+static DWORD ec702_enter_programming_mode(struct device *dev)
 {
+	struct fvdkdata *data = dev_get_drvdata(dev);
+	PFVD_DEV_INFO pDev = &data->pDev;
+
 	(void)pDev;
 	return 1;
 }
 
 /* Enable or disable SPI bus */
-static int set_spi_bus_active(PFVD_DEV_INFO pDev, BOOL enable)
+static int set_spi_bus_active(struct device *dev, BOOL enable)
 {
-	struct device *dev = &pDev->pLinuxDevice->dev;
+	struct fvdkdata *data = dev_get_drvdata(dev);
+	PFVD_DEV_INFO pDev = &data->pDev;
 	int ret;
 
 	if (enable) {
-		ret = pinctrl_select_state(pDev->pinctrl, pDev->pins_default);
+		ret = pinctrl_select_state(data->pinctrl, data->pins_default);
 		if (ret != 0) {
 			dev_err(dev, "cannot select SPI pin state, ret=%d\n", ret);
 			goto out_err;
@@ -296,7 +309,7 @@ static int set_spi_bus_active(PFVD_DEV_INFO pDev, BOOL enable)
 			dev_err(dev, "cannot change SPI CS to input, ret=%d\n", ret);
 			goto out_err;
 		}
-		ret = pinctrl_select_state(pDev->pinctrl, pDev->pins_idle);
+		ret = pinctrl_select_state(data->pinctrl, data->pins_idle);
 		if (ret != 0) {
 			dev_err(dev, "cannot select SPI pin state, ret=%d\n", ret);
 			goto out_err;
@@ -340,14 +353,12 @@ out_err:
 	return ret;
 }
 
-static void ec702_bsp_fvd_power_up(PFVD_DEV_INFO pDev, BOOL restart)
+static void ec702_bsp_fvd_power_up(struct device *dev, BOOL restart)
 {
-	struct device *dev = &pDev->pLinuxDevice->dev;
 	int ret;
 
 	dev_info(dev, "fvd power up\n");
-
-	ret = ec702_set_fpga_power(pDev, TRUE);
+	ret = ec702_set_fpga_power(dev, TRUE);
 	if (ret != 0)
 		goto out_err;
 
@@ -359,36 +370,36 @@ static void ec702_bsp_fvd_power_up(PFVD_DEV_INFO pDev, BOOL restart)
 	msleep(300); /* Max POR delay, until FPGA is ready for programming */
 
 	/* Set SPI pins as SPI */
-	ret = set_spi_bus_active(pDev, TRUE);
+	ret = set_spi_bus_active(dev, TRUE);
 	if (ret != 0)
 		goto out_err;
 
 	if (restart)
-		ret = ec702_reload_fpga(pDev);
+		ret = ec702_reload_fpga(dev);
 
 out_err:
 	if (ret != 0)
 		dev_err(dev, "fvd power up failed\n");
 }
 
-static void ec702_bsp_fvd_power_down(PFVD_DEV_INFO pDev)
+static void ec702_bsp_fvd_power_down(struct device *dev)
 {
-	struct device *dev = &pDev->pLinuxDevice->dev;
+	struct fvdkdata *data = dev_get_drvdata(dev);
 	int ret;
 
 	dev_info(dev, "fvd power down\n");
 
 	/* Disable FPGA */
-	ret = ec702_set_fpga_power(pDev, FALSE);
+	ret = ec702_set_fpga_power(dev, FALSE);
 	if (ret != 0)
 		goto out_err;
 
-	ret = gpio_direction_output(pDev->pin_fpga_config_n, 0);
+	ret = gpio_direction_output(data->fpga_pins.pin_fpga_config_n, 0);
 	if (ret != 0) {
 		dev_err(dev, "failed to set FPGA_CONFIG_n low, ret=%d\n", ret);
 		goto out_err;
 	}
-	ret = gpio_direction_output(pDev->pin_fpga_ce_n, 1);
+	ret = gpio_direction_output(data->fpga_pins.pin_fpga_ce_n, 1);
 	if (ret != 0) {
 		dev_err(dev, "failed to set FPGA_CE_n high, ret=%d\n", ret);
 		goto out_err;
@@ -399,14 +410,14 @@ out_err:
 		dev_err(dev, "fvd power down failed\n");
 }
 
-static void ec702_bsp_fvd_power_up_fpa(PFVD_DEV_INFO pDev)
+static void ec702_bsp_fvd_power_up_fpa(struct device *dev)
 {
-	(void)ec702_set_fpa_power(pDev, TRUE);
+	ec702_set_fpa_power(dev, TRUE);
 }
 
-static void ec702_bsp_fvd_power_down_fpa(PFVD_DEV_INFO pDev)
+static void ec702_bsp_fvd_power_down_fpa(struct device *dev)
 {
-	(void)ec702_set_fpa_power(pDev, FALSE);
+	ec702_set_fpa_power(dev, FALSE);
 }
 
 /**
@@ -504,15 +515,15 @@ out_err:
 }
 
 
-static int ec702_reload_fpga(PFVD_DEV_INFO pDev)
+static int ec702_reload_fpga(struct device *dev)
 {
-	struct device *dev = &pDev->pLinuxDevice->dev;
+	struct fvdkdata *data = dev_get_drvdata(dev);
 	int ret;
 	int elapsed;
 	BOOL done = FALSE;
 
 	/* FPGA_CE_n must be disabled while we prepare SPI flash */
-	ret = gpio_direction_output(pDev->pin_fpga_ce_n, 1);
+	ret = gpio_direction_output(data->fpga_pins.pin_fpga_ce_n, 1);
 	if (ret != 0) {
 		dev_err(dev, "failed to set FPGA_CE_n high, ret=%d\n", ret);
 		goto out_err;
@@ -527,20 +538,20 @@ static int ec702_reload_fpga(PFVD_DEV_INFO pDev)
 	dev_dbg(dev, "configured SPI flash for fpga reload\n");
 
 	/* Disable SPI bus during FPGA programming */
-	ret = set_spi_bus_active(pDev, FALSE);
+	ret = set_spi_bus_active(dev, FALSE);
 	if (ret != 0)
 		goto restore_spi_bus;
 
 	/* CE_n and CONFIG_n initially low */
-	ret = gpio_direction_output(pDev->pin_fpga_config_n, 0);
+	ret = gpio_direction_output(data->fpga_pins.pin_fpga_config_n, 0);
 	if (!ret)
-		ret = gpio_direction_output(pDev->pin_fpga_ce_n, 0);
+		ret = gpio_direction_output(data->fpga_pins.pin_fpga_ce_n, 0);
 
 	msleep(20);
 
 	/* Release CONFIG_n to start config (has pull up resistor) */
 	if (!ret)
-		ret = gpio_direction_input(pDev->pin_fpga_config_n);
+		ret = gpio_direction_input(data->fpga_pins.pin_fpga_config_n);
 	if (ret != 0)
 		dev_err(dev, "failed to initiate FPGA load\n");
 
@@ -549,15 +560,14 @@ static int ec702_reload_fpga(PFVD_DEV_INFO pDev)
 		const int delay = 10;
 		msleep(delay);
 		elapsed += delay;
-		done = ec702_get_pin_done(pDev);
-		dev_dbg(dev, "FPGA pin done=%d, status=%d\n",
-			done, ec702_get_pin_status(pDev));
+		done = ec702_get_pin_done(dev);
+		dev_dbg(dev, "FPGA pin done=%d, status=%d\n", done, ec702_get_pin_status(dev));
 	} while (!done && elapsed < 500); /* ms */
 
 	if (!done) {
 		dev_err(dev, "FPGA load failed");
-		(void)gpio_direction_output(pDev->pin_fpga_config_n, 0);
-		(void)gpio_direction_output(pDev->pin_fpga_ce_n, 1);
+		gpio_direction_output(data->fpga_pins.pin_fpga_config_n, 0);
+		gpio_direction_output(data->fpga_pins.pin_fpga_ce_n, 1);
 	} else {
 		dev_info(dev, "FPGA loaded in %d ms\n", elapsed);
 	}
@@ -565,7 +575,7 @@ static int ec702_reload_fpga(PFVD_DEV_INFO pDev)
 restore_spi_bus:
 	{
 		/* Enable SPI bus again */
-		int ret2 = set_spi_bus_active(pDev, TRUE);
+		int ret2 = set_spi_bus_active(dev, TRUE);
 
 		if (!ret2)
 			ret2 = uninit_spi_flash_for_fpga_reload(dev, spi_dev);
@@ -614,24 +624,22 @@ static int ec702_reg_enable(struct device *dev, struct regulator *reg,
 	return ret;
 }
 
-static int ec702_set_fpa_power(PFVD_DEV_INFO pDev, BOOL enable)
+static int ec702_set_fpa_power(struct device *dev, BOOL enable)
 {
-	struct device *dev = &pDev->pLinuxDevice->dev;
+	struct fvdkdata *data = dev_get_drvdata(dev);
 	int ret = 0;
 
 	if (enable && !ec702_fpa_powered) {
 		dev_dbg(dev, "fpa power enable\n");
-		ret = regulator_enable(pDev->reg_4v0_fpa);
-		/* ret = ec702_reg_enable(dev, pDev->reg_4v0_fpa, TRUE, "4V0_fpa"); */
-		/* if (ret != 0) */
-		/* 	goto out_err; */
+		ret = regulator_enable(data->reg_4v0_fpa);
+		if (ret != 0)
+			goto out_err;
 		ec702_fpa_powered = TRUE;
 	} else if (!enable && ec702_fpa_powered) {
 		dev_dbg(dev, "fpa power disable\n");
-		ret = regulator_disable(pDev->reg_4v0_fpa);
-		/* ret = ec702_reg_enable(dev, pDev->reg_4v0_fpa, FALSE, "4V0_fpa"); */
-		/* if (ret != 0) */
-		/* 	goto out_err; */
+		ret = regulator_disable(data->reg_4v0_fpa);
+		if (ret != 0)
+			goto out_err;
 		ec702_fpa_powered = FALSE;
 	}
 
@@ -642,44 +650,44 @@ out_err:
 	return ret;
 }
 
-static int ec702_set_fpga_power(PFVD_DEV_INFO pDev, BOOL enable)
+static int ec702_set_fpga_power(struct device *dev, BOOL enable)
 {
-	struct device *dev = &pDev->pLinuxDevice->dev;
+	struct fvdkdata *data = dev_get_drvdata(dev);
 	int ret = 0;
 
 	if (enable && !ec702_fpga_powered) {
 		dev_dbg(dev, "fpga power enable\n");
-		ret = ec702_reg_enable(dev, pDev->reg_1v1_fpga, TRUE, "1V1D_FPGA");
+		ret = ec702_reg_enable(dev, data->reg_1v1_fpga, TRUE, "1V1D_FPGA");
 		if (ret != 0)
 			goto out_err;
-		ret = ec702_reg_enable(dev, pDev->reg_1v2_fpga, TRUE, "1V2D_FPGA");
+		ret = ec702_reg_enable(dev, data->reg_1v2_fpga, TRUE, "1V2D_FPGA");
 		if (ret != 0)
 			goto out_err;
-		ret = ec702_reg_enable(dev, pDev->reg_1v8_fpga, TRUE, "1V8D_FPGA");
+		ret = ec702_reg_enable(dev, data->reg_1v8_fpga, TRUE, "1V8D_FPGA");
 		if (ret != 0)
 			goto out_err;
-		ret = ec702_reg_enable(dev, pDev->reg_2v5_fpga, TRUE, "2V5D_FPGA");
+		ret = ec702_reg_enable(dev, data->reg_2v5_fpga, TRUE, "2V5D_FPGA");
 		if (ret != 0)
 			goto out_err;
-		ret = ec702_reg_enable(dev, pDev->reg_3v15_fpga, TRUE, "3V15D_FPGA");
+		ret = ec702_reg_enable(dev, data->reg_3v15_fpga, TRUE, "3V15D_FPGA");
 		if (ret != 0)
 			goto out_err;
 		ec702_fpga_powered = TRUE;
 	} else if (!enable && ec702_fpga_powered) {
 		dev_dbg(dev, "fpga power disable\n");
-		ret = ec702_reg_enable(dev, pDev->reg_3v15_fpga, FALSE, "3V15D_FPGA");
+		ret = ec702_reg_enable(dev, data->reg_3v15_fpga, FALSE, "3V15D_FPGA");
 		if (ret != 0)
 			goto out_err;
-		ret = ec702_reg_enable(dev, pDev->reg_2v5_fpga, FALSE, "2V5D_FPGA");
+		ret = ec702_reg_enable(dev, data->reg_2v5_fpga, FALSE, "2V5D_FPGA");
 		if (ret != 0)
 			goto out_err;
-		ret = ec702_reg_enable(dev, pDev->reg_1v8_fpga, FALSE, "1V8D_FPGA");
+		ret = ec702_reg_enable(dev, data->reg_1v8_fpga, FALSE, "1V8D_FPGA");
 		if (ret != 0)
 			goto out_err;
-		ret = ec702_reg_enable(dev, pDev->reg_1v2_fpga, FALSE, "1V2D_FPGA");
+		ret = ec702_reg_enable(dev, data->reg_1v2_fpga, FALSE, "1V2D_FPGA");
 		if (ret != 0)
 			goto out_err;
-		ret = ec702_reg_enable(dev, pDev->reg_1v1_fpga, FALSE, "1V1D_FPGA");
+		ret = ec702_reg_enable(dev, data->reg_1v1_fpga, FALSE, "1V1D_FPGA");
 		if (ret != 0)
 			goto out_err;
 		ec702_fpga_powered = FALSE;

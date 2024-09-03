@@ -40,8 +40,10 @@
 // Local data
 static const struct firmware *pFW;
 
-BOOL GetMainboardVersion(PFVD_DEV_INFO pDev, int *article, int *revision)
+BOOL GetMainboardVersion(struct device *dev, int *article, int *revision)
 {
+	struct fvdkdata *data = dev_get_drvdata(dev);
+	PFVD_DEV_INFO pDev = &data->pDev;
 	struct i2c_msg msgs[2];
 	int ret = 1;
 	struct i2c_adapter *adap;
@@ -80,10 +82,10 @@ BOOL GetMainboardVersion(PFVD_DEV_INFO pDev, int *article, int *revision)
 		if (ret > 0) {
 			sscanf(HWrev.article, "T%d", &savedArticle);
 			sscanf(HWrev.revision, "%d", &savedRevision);
-			pr_info("FVD: Mainboard article %d revision %d\n",
-				savedArticle, savedRevision);
+			dev_info(dev, "FVD: Mainboard article %d revision %d\n",
+				 savedArticle, savedRevision);
 		} else {
-			pr_err("FVD: Failed reading article (%d)\n", ret);
+			dev_err(dev, "FVD: Failed reading article (%d)\n", ret);
 		}
 	}
 	*article = savedArticle;
@@ -95,35 +97,39 @@ BOOL GetMainboardVersion(PFVD_DEV_INFO pDev, int *article, int *revision)
 #define FW_DIR "FLIR/"
 
 // Code
-PUCHAR getFPGAData(PFVD_DEV_INFO pDev, ULONG *size, char *pHeader)
+PUCHAR getFPGAData(struct device *dev, ULONG *size, char *pHeader)
 {
+	struct fvdkdata *data = dev_get_drvdata(dev);
+	PFVD_DEV_INFO pDev = &data->pDev;
+
 	GENERIC_FPGA_T *pGen;
 	BXAB_FPGA_T *pSpec;
 	int err;
 	int article = 0, revision = 0;
+	char *filename;
 
-	GetMainboardVersion(pDev, &article, &revision);
+	GetMainboardVersion(dev, &article, &revision);
 	switch (article) {
 	case 198606:
 		if (revision >= 4)
-			pDev->filename = FW_DIR "fpga_neco_c.bin";
+			filename = FW_DIR "fpga_neco_c.bin";
 		else
-			pDev->filename = FW_DIR "fpga_neco_b.bin";
+			filename = FW_DIR "fpga_neco_b.bin";
 		break;
 
 	default:
-		pDev->filename = FW_DIR "fpga.bin";
+		filename = FW_DIR "fpga.bin";
 		break;
 	}
 
 	/* Request firmware from user space */
-	err = request_firmware(&pFW, pDev->filename, &pDev->pLinuxDevice->dev);
+	err = request_firmware(&pFW, filename, dev);
 	if (err) {
-		pr_err("Failed to get file %s\n", pDev->filename);
+		dev_err(dev, "Failed to get file %s\n", filename);
 		return NULL;
 	}
 
-	pr_err("Got %d bytes of firmware from %s\n", pFW->size, pDev->filename);
+	dev_err(dev, "Got %d bytes of firmware from %s\n", pFW->size, filename);
 
 	/* Read generic header */
 	if (pFW->size < sizeof(GENERIC_FPGA_T))
@@ -157,16 +163,18 @@ void freeFpgaData(void)
 	pFW = NULL;
 }
 
-DWORD CheckFPGA(PFVD_DEV_INFO pDev)
+DWORD CheckFPGA(struct device *dev)
 {
+	struct fvdkdata *data = dev_get_drvdata(dev);
+
 	DWORD res = ERROR_SUCCESS;
 
-	if (pDev->pGetPinDone(pDev) == 0) {
-		if (pDev->pGetPinStatus(pDev) == 0)
+	if (data->ops.pGetPinDone(dev) == 0) {
+		if (data->ops.pGetPinStatus(dev) == 0)
 			res = ERROR_NO_INIT_OK;
 		else
 			res = ERROR_NO_CONFIG_DONE;
-		pr_err("CheckFPGA: FPGA load failed (%ld)\n", res);
+		dev_err(dev, "FPGA load failed (%ld)\n", res);
 	}
 
 	return res;
@@ -186,8 +194,10 @@ struct spi_board_info chip = {
 #define gettime(tp) (do_gettimeofday(tp))
 #endif
 
-DWORD LoadFPGA(PFVD_DEV_INFO pDev, char *szFileName)
+DWORD LoadFPGA(struct device *dev, char *szFileName)
 {
+	struct fvdkdata *data = dev_get_drvdata(dev);
+	PFVD_DEV_INFO pDev = &data->pDev;
 	DWORD res = ERROR_SUCCESS;
 	unsigned long size;
 	unsigned char *fpgaBin;
@@ -203,14 +213,14 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char *szFileName)
 	gettime(&t[0]);
 
 	// read file
-	fpgaBin = getFPGAData(pDev, &size, pDev->fpga);
+	fpgaBin = getFPGAData(dev, &size, pDev->fpga);
 	if (fpgaBin == NULL) {
-		pr_err("LoadFPGA: Error reading %s\n", szFileName);
+		dev_err(dev, "Error reading %s\n", szFileName);
 		return ERROR_IO_DEVICE;
 	}
 
-	if (pDev->pGetPinDone(pDev)) {
-		pr_err("LoadFPGA: Fpga has already been programmed in uboot");
+	if (data->ops.pGetPinDone(dev)) {
+		dev_err(dev, "Fpga has already been programmed in uboot");
 		goto done;
 		//platforms with pcie loads fpga in u-boot
 	}
@@ -252,16 +262,15 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char *szFileName)
 		}
 	}
 
-	pr_err("LoadFPGA: Activating programming mode\n");
+	dev_err(dev, "Activating programming mode\n");
 
 	gettime(&t[2]);
 
 	// Put FPGA in programming mode
-	if (pDev->pPutInProgrammingMode(pDev) == 0) {
+	if (data->ops.pPutInProgrammingMode(dev) == 0) {
 		msleep(5);
-		if (pDev->pPutInProgrammingMode(pDev) == 0) {
-			pr_err
-			    ("LoadFPGA: Failed to set FPGA in programming mode\n");
+		if (data->ops.pPutInProgrammingMode(dev) == 0) {
+			dev_err(dev, "Failed to set FPGA in programming mode\n");
 			freeFpgaData();
 			return ERROR_NO_SETUP;
 		}
@@ -269,17 +278,17 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char *szFileName)
 
 	gettime(&t[3]);
 
-	pr_err("LoadFPGA: Sending FPGA code over SPI%d\n", pDev->iSpiBus);
+	dev_err(dev, "Sending FPGA code over SPI%d\n", pDev->iSpiBus);
 
 	// Send FPGA code through SPI
 	pspim = spi_busnum_to_master(pDev->iSpiBus);
 	if (pspim == 0) {
-		pr_err("LoadFPGA: Failed to get SPI master\n");
+		dev_err(dev, "Failed to get SPI master\n");
 		return ERROR_NO_SPI;
 	}
 	pspid = spi_new_device(pspim, &chip);
 	if (pspid == 0) {
-		pr_err("LoadFPGA: Failed to set SPI device\n");
+		dev_err(dev, "Failed to set SPI device\n");
 		return ERROR_NO_SPI;
 	}
 	pspid->bits_per_word = 32;
@@ -294,16 +303,15 @@ DWORD LoadFPGA(PFVD_DEV_INFO pDev, char *szFileName)
 	gettime(&t[4]);
 
 	//programming OK?
-	res = CheckFPGA(pDev);
+	res = CheckFPGA(dev);
 
 	gettime(&t[5]);
 
 	// Printing mesage here breaks startup timing for SB 0601 detectors
-	pr_err
-	    ("FPGA loaded in %ld ms (read %ld rotate %ld prep %ld SPI %ld check %ld)\r\n",
-	     tms(t[5]) - tms(t[0]), tms(t[1]) - tms(t[0]),
-	     tms(t[2]) - tms(t[1]), tms(t[3]) - tms(t[2]),
-	     tms(t[4]) - tms(t[3]), tms(t[5]) - tms(t[4]));
+	dev_err(dev, "FPGA loaded in %ld ms (read %ld rotate %ld prep %ld SPI %ld check %ld)\r\n",
+		tms(t[5]) - tms(t[0]), tms(t[1]) - tms(t[0]),
+		tms(t[2]) - tms(t[1]), tms(t[3]) - tms(t[2]),
+		tms(t[4]) - tms(t[3]), tms(t[5]) - tms(t[4]));
 done:
 	freeFpgaData();
 	return res;

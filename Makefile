@@ -21,9 +21,7 @@ EXTRA_CFLAGS = -I$(INCLUDE_SRC) -DFVD_DEPRECIATED_OK=0 -Werror
 	obj-m := fvdk.o
 	fvdk-objs += fvdk_main.o
 	fvdk-objs += load_fpga.o
-	fvdk-objs += fvdk_mx6s.o
 	fvdk-objs += roco_header.o
-	fvdk-objs += fvdk_mx6q.o
 	fvdk-objs += fvdk_mx6s_ec101.o
 	fvdk-objs += fvdk_mx6s_ec501.o
 	fvdk-objs += fvdk_flir_eoco.o
