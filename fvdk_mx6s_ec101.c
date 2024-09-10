@@ -134,44 +134,62 @@ BOOL SetupGpioAccessMX6S(struct device *dev)
 	pDev->spi_miso_gpio = of_get_named_gpio(np, "spi-miso-gpio", 0);
 	pDev->spi_cs_gpio = of_get_named_gpio(np, "spi-cs-gpio", 0);
 
-/* FPA regulators */
+	/* FPA regulators */
 	data->reg_4v0_fpa = devm_regulator_get(dev, "4V0_fpa");
-	if (IS_ERR(data->reg_4v0_fpa))
+	if (IS_ERR(data->reg_4v0_fpa)) {
 		dev_err(dev, "can't get regulator 4V0_fpa");
+		return -ENODEV;
+		}
 
 	data->reg_fpa_i2c = devm_regulator_get(dev, "fpa_i2c");
-	if (IS_ERR(data->reg_fpa_i2c))
+	if (IS_ERR(data->reg_fpa_i2c)) {
 		dev_err(dev, "can't get regulator fpa_i2c\n");
+		return -ENODEV;
+	}
 
-/* FPGA regulators */
+	/* FPGA regulators */
 	data->reg_1v0_fpga = devm_regulator_get(dev, "DA9063_BPRO");
-	if (IS_ERR(data->reg_1v0_fpga))
+	if (IS_ERR(data->reg_1v0_fpga)) {
 		dev_err(dev, "can't get regulator DA9063_BPRO");
+		return -ENODEV;
+	}
 
 	data->reg_1v2_fpga = devm_regulator_get(dev, "DA9063_CORE_SW");
-	if (IS_ERR(data->reg_1v2_fpga))
+	if (IS_ERR(data->reg_1v2_fpga)) {
 		dev_err(dev, "can't get regulator DA9063_CORE_SW");
+		return -ENODEV;
+	}
 
 	data->reg_1v8_fpga = devm_regulator_get(dev, "DA9063_PERI_SW");
-	if (IS_ERR(data->reg_1v8_fpga))
+	if (IS_ERR(data->reg_1v8_fpga)) {
 		dev_err(dev, "can't get regulator DA9063_PERI_SW");
+		return -ENODEV;
+	}
 
 	if (article == EC101_ARTNO && revision == 3) {	//revC
 		data->reg_2v5_fpga = devm_regulator_get(dev, "DA9063_BMEM");
-		if (IS_ERR(data->reg_2v5_fpga))
+		if (IS_ERR(data->reg_2v5_fpga)) {
 			dev_err(dev, "can't get regulator DA9063_BMEM");
+			return -ENODEV;
+		}
 
 		data->reg_3v15_fpga = devm_regulator_get(dev, "DA9063_LDO10");
-		if (IS_ERR(data->reg_3v15_fpga))
+		if (IS_ERR(data->reg_3v15_fpga)) {
 			dev_err(dev, "can't get regulator DA9063_LDO10");
+			return -ENODEV;
+		}
 	} else {
 		data->reg_2v5_fpga = devm_regulator_get(dev, "DA9063_LDO10");
-		if (IS_ERR(data->reg_2v5_fpga))
+		if (IS_ERR(data->reg_2v5_fpga)) {
 			dev_err(dev, "can't get regulator DA9063_LDO10");
+			return -ENODEV;
+		}
 
 		data->reg_3v15_fpga = devm_regulator_get(dev, "DA9063_LDO8");
-		if (IS_ERR(data->reg_3v15_fpga))
+		if (IS_ERR(data->reg_3v15_fpga)) {
 			dev_err(dev, "can't get regulator DA9063_LDO8");
+			return -ENODEV;
+		}
 	}
 
 	if (!GetPinDoneMX6S(dev)) {
@@ -181,23 +199,25 @@ BOOL SetupGpioAccessMX6S(struct device *dev)
 	}
 
 	data->pinctrl = devm_pinctrl_get(dev);
-	if (IS_ERR(data->pinctrl))
+	if (IS_ERR(data->pinctrl)) {
 		dev_err(dev, "can't get pinctrl");
+		return -ENODEV;
+	}
 
 	data->pins_default = pinctrl_lookup_state(data->pinctrl, "spi-default");
-	if (IS_ERR(data->pins_default))
+	if (IS_ERR(data->pins_default)) {
 		dev_err(dev, "can't get default pins %p %d", data->pinctrl,
 			(int)(data->pins_default));
+		return -ENODEV;
+	}
 
 	data->pins_idle = pinctrl_lookup_state(data->pinctrl, "spi-idle");
-	if (IS_ERR(data->pins_idle))
+	if (IS_ERR(data->pins_idle)) {
 		dev_err(dev, "can't get idle pins %p %d", data->pinctrl,
 			(int)(data->pins_idle));
+		return -ENODEV;
+	}
 
-	//fpga power already on, but need to sync regulator_enable
-	enable_fpga_power(dev);
-
-	of_node_put(np);
 #endif
 
 	return TRUE;
@@ -302,13 +322,9 @@ static void enable_fpga_power(struct device *dev)
 	struct fvdkdata *data = dev_get_drvdata(dev);
 	int ret;
 
-	if (IS_ERR(data->reg_1v0_fpga) || IS_ERR(data->reg_1v2_fpga) ||
-	    IS_ERR(data->reg_1v8_fpga) || IS_ERR(data->reg_2v5_fpga)
-	    || IS_ERR(data->reg_3v15_fpga))
-		return;
-
 	if (fpgaIsEnabled)
 		return;
+
 	fpgaIsEnabled = true;
 	dev_dbg(dev, "Fpga power enable\n");
 
@@ -327,12 +343,6 @@ void BSPFvdPowerDownMX6S(struct device *dev)
 	struct fvdkdata *data = dev_get_drvdata(dev);
 	PFVD_DEV_INFO pDev = &data->pDev;
 	int ret;
-
-	// Disable FPGA
-	if (IS_ERR(data->reg_1v0_fpga) || IS_ERR(data->reg_1v2_fpga) ||
-	    IS_ERR(data->reg_1v8_fpga) || IS_ERR(data->reg_2v5_fpga)
-	    || IS_ERR(data->reg_3v15_fpga))
-		return;
 
 	if (!fpgaIsEnabled)
 		return;
@@ -360,9 +370,6 @@ void BSPFvdPowerDownFPAMX6S(struct device *dev)
 	struct fvdkdata *data = dev_get_drvdata(dev);
 	int ret;
 
-	if (IS_ERR(data->reg_fpa_i2c) || IS_ERR(data->reg_4v0_fpa))
-		return;
-
 	if (!fpaIsEnabled)
 		return;
 	fpaIsEnabled = false;
@@ -379,9 +386,6 @@ void BSPFvdPowerUpFPAMX6S(struct device *dev)
 {
 	struct fvdkdata *data = dev_get_drvdata(dev);
 	int ret;
-
-	if (IS_ERR(data->reg_fpa_i2c) || IS_ERR(data->reg_4v0_fpa))
-		return;
 
 	if (fpaIsEnabled)
 		return;
