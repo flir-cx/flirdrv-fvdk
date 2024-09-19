@@ -254,19 +254,19 @@ static int FVD_Open(struct inode *inode, struct file *file)
 		rxbuf = vmalloc(sizeof(unsigned char) * HEADER_LENGTH);
 		if (!rxbuf) {
 			ret = -1;
-			goto END;
+			goto SPI_FAIL;
 		}
 		ret = read_spi_header(rxbuf);
 		if (ret < 0) {
 			dev_err(dev, "Failed to read data from SPI flash\n");
-			goto END;
+			goto SPI_FAIL;
 		}
 
 		memcpy(data->pDev.fpga, rxbuf, sizeof(data->pDev.fpga));
 		ret = 0;
 
 		init = TRUE;   // only if successful open
-END:
+SPI_FAIL:
 		vfree(rxbuf);
 		rxbuf = 0;
 
@@ -279,8 +279,9 @@ END:
 		dwStatus = LoadFPGA(dev, "");
 
 		if (dwStatus != ERROR_SUCCESS) {
-			dev_dbg(dev, "FVD_Init: LoadFPGA failed %lu\n", dwStatus);
-			return -1;
+			dev_err(dev, "FVD_Init: LoadFPGA failed %lu\n", dwStatus);
+			ret = -1;
+			goto END;
 		}
 
 		// Wait until FPGA loaded
@@ -292,7 +293,7 @@ END:
 		init = TRUE;
 		ret = 0;
 	}
-
+END:
 	up(&(data->muDevice));
 
 	return ret;
