@@ -405,6 +405,13 @@ static void ec702_bsp_fvd_power_down(struct device *dev)
 		goto out_err;
 	}
 
+	/* Disable SPI bus */
+	ret = set_spi_bus_active(dev, FALSE);
+	if (ret != 0) {
+		dev_err(dev, "failed to disable SPI bus, ret=%d\n", ret);
+		goto out_err;
+	}
+
 out_err:
 	if (ret != 0)
 		dev_err(dev, "fvd power down failed\n");
@@ -542,7 +549,8 @@ static int ec702_reload_fpga(struct device *dev)
 	if (ret != 0)
 		goto restore_spi_bus;
 
-	/* CE_n and CONFIG_n initially low */
+	/* CE_n and CONFIG_n should initially be low. If we fail, don't enable fpga */
+	/* since that would make the fpga hog the spi bus which is bad for our spi driver*/
 	ret = gpio_direction_output(data->fpga_pins.pin_fpga_config_n, 0);
 	if (!ret)
 		ret = gpio_direction_output(data->fpga_pins.pin_fpga_ce_n, 0);
