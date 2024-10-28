@@ -342,8 +342,16 @@ out_err:
 static void ec702_bsp_fvd_power_up(struct device *dev, BOOL restart)
 {
 	int ret;
+	struct fvdkdata *data = dev_get_drvdata(dev);
 
 	dev_info(dev, "fvd power up\n");
+
+	ret = gpio_direction_output(data->fpga_pins.pin_fpga_ce_n, 1);
+	if (ret != 0) {
+		dev_err(dev, "failed to set FPGA_CE_n as output high, ret=%d\n", ret);
+		goto out_err;
+	}
+
 	ret = ec702_set_fpga_power(dev, TRUE);
 	if (ret != 0)
 		goto out_err;
@@ -385,9 +393,9 @@ static void ec702_bsp_fvd_power_down(struct device *dev)
 		dev_err(dev, "failed to set FPGA_CONFIG_n low, ret=%d\n", ret);
 		goto out_err;
 	}
-	ret = gpio_direction_output(data->fpga_pins.pin_fpga_ce_n, 1);
+	ret = gpio_direction_input(data->fpga_pins.pin_fpga_ce_n);
 	if (ret != 0) {
-		dev_err(dev, "failed to set FPGA_CE_n high, ret=%d\n", ret);
+		dev_err(dev, "failed to set FPGA_CE_n to input, ret=%d\n", ret);
 		goto out_err;
 	}
 
