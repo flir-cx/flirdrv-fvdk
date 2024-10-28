@@ -26,11 +26,9 @@
 #include <linux/version.h>
 #include <linux/regulator/consumer.h>
 
-#ifdef CONFIG_OF
 #include <linux/of_gpio.h>
 #include <linux/of.h>
 #include <linux/regulator/of_regulator.h>
-#endif
 
 #if KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
 #include "../arch/arm/mach-imx/mx6.h"
@@ -84,7 +82,6 @@ void SetupMX6S_ec101(struct device *dev)
 
 BOOL SetupGpioAccessMX6S(struct device *dev)
 {
-#ifdef CONFIG_OF
 	struct fvdkdata *data = dev_get_drvdata(dev);
 	PFVD_DEV_INFO pDev = &data->pDev;
 	struct device_node *np = dev->of_node;
@@ -217,8 +214,6 @@ BOOL SetupGpioAccessMX6S(struct device *dev)
 			(int)(data->pins_idle));
 		return -ENODEV;
 	}
-
-#endif
 
 	return TRUE;
 }

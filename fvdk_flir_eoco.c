@@ -17,11 +17,9 @@
 #include <linux/version.h>
 #include <linux/regulator/consumer.h>
 
-#ifdef CONFIG_OF
 #include <linux/of_gpio.h>
 #include <linux/of.h>
 #include <linux/regulator/of_regulator.h>
-#endif
 
 static BOOL SetupGpioAccessEOCO(struct device *dev);
 static void CleanupGpioEOCO(struct device *dev);

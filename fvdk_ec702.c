@@ -22,11 +22,9 @@
 #include <linux/mtd/spi-nor.h>
 #include <linux/types.h>
 
-#ifdef CONFIG_OF
 #include <linux/of_gpio.h>
 #include <linux/of.h>
 #include <linux/regulator/of_regulator.h>
-#endif
 
 /* Micron-st specific */
 #define SPINOR_OP_MT_WR_ANY_REG	0x81	/* Write volatile register */
@@ -58,7 +56,6 @@ static struct spi_device *spi_dev;
 /* Get SPI device, remember to put it after use */
 static struct spi_device *get_spi_device_from_node_prop(struct device *dev)
 {
-#ifdef CONFIG_OF
 	/* Find SPI device via phandle */
 	static const char spi_flash_prop_name[] = "spi_fpga_flash";
 	struct device_node *np = dev->of_node;
@@ -77,9 +74,6 @@ static struct spi_device *get_spi_device_from_node_prop(struct device *dev)
 	}
 
 	dev_err(dev, "property '%s' not found\n", spi_flash_prop_name);
-#else
-	(void)dev;
-#endif
 	return NULL;
 }
 
@@ -109,7 +103,6 @@ void Setup_FLIR_ec702(struct device *dev)
 	spi_dev = get_spi_device_from_node_prop(dev);
 }
 
-#ifdef CONFIG_OF
 static int get_and_request_gpio(struct device *dev,
 		struct device_node *np, const char *name, unsigned long flags)
 {
@@ -236,13 +229,6 @@ static BOOL ec702_setup_gpio_access(struct device *dev)
 
 	return result;
 }
-#else
-static BOOL ec702_setup_gpio_access(PFVD_DEV_INFO pDev)
-{
-	(void)pDev;
-	return FALSE;
-}
-#endif
 
 static void ec702_cleanup_gpio(struct device *dev)
 {
