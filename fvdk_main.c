@@ -38,6 +38,12 @@ static int FVD_Open(struct inode *inode, struct file *file);
 static int FVD_mmap(struct file *file, struct vm_area_struct *vma);
 static int fvdk_suspend(struct device *dev);
 static int fvdk_resume(struct device *dev);
+static ssize_t resume_store(struct device *dev,
+			    struct device_attribute *attr,
+			    const char *buf, size_t count);
+static ssize_t suspend_store(struct device *dev,
+			     struct device_attribute *attr,
+			     const char *buf, size_t count);
 
 // Parameters
 
@@ -53,6 +59,46 @@ static const struct file_operations fvd_fops = {
 	.open = FVD_Open,
 	.mmap = FVD_mmap,
 };
+
+static DEVICE_ATTR_WO(suspend);
+static DEVICE_ATTR_WO(resume);
+
+static struct attribute *fvdk_sysfs_attrs[] = {
+	&dev_attr_resume.attr,
+	&dev_attr_suspend.attr,
+	NULL
+};
+
+static const struct attribute_group fvdk_sysfs_group = {
+	.name = "control",
+	.attrs = fvdk_sysfs_attrs,
+};
+
+static ssize_t resume_store(struct device *dev,
+			    struct device_attribute *attr,
+			    const char *buf, size_t count)
+{
+	unsigned long val;
+
+	if (kstrtoul(buf, 0, &val) < 0)
+		return -EINVAL;
+
+	fvdk_resume(dev);
+	return count;
+}
+
+static ssize_t suspend_store(struct device *dev,
+			     struct device_attribute *attr,
+			     const char *buf, size_t count)
+{
+	unsigned long val;
+
+	if (kstrtoul(buf, 0, &val) < 0)
+		return -EINVAL;
+
+	fvdk_suspend(dev);
+	return count;
+}
 
 static int FVD_mmap(struct file *file, struct vm_area_struct *vma)
 {
@@ -164,6 +210,10 @@ static int fvdk_probe(struct platform_device *pdev)
 		goto ERROR_GPIO_SETUP;
 	}
 
+	ret = sysfs_create_group(&dev->kobj, &fvdk_sysfs_group);
+	if (ret)
+		dev_err(dev, "%s: Failed to add sysfs entries\n", __func__);
+
 	if (data->ops.pGetPinReady(dev) != 0) {
 		int r;
 
@@ -196,6 +246,7 @@ static int fvdk_remove(struct platform_device *pdev)
 	kfree(data->pDev.blob);
 	data->pDev.blob = NULL;
 
+	sysfs_remove_group(&dev->kobj, &fvdk_sysfs_group);
 	data->ops.pCleanupGpio(dev);
 	misc_deregister(&data->miscdev);
 	return 0;
