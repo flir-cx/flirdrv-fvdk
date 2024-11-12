@@ -194,10 +194,13 @@ static BOOL ec702_setup_gpio_access(struct device *dev)
 	}
 
 	if (!ec702_get_pin_done(dev)) {
-		dev_err(dev, "U-boot FPGA load failed");
+		/* Expected state. U-Boot does not load FPGA */
+		dev_info(dev, "FPGA not loaded by u-boot");
 		/* Disable FPGA (CE_n=1) and hold CONFIG_n low */
 		gpio_direction_output(data->fpga_pins.pin_fpga_ce_n, 1);
 		gpio_direction_output(data->fpga_pins.pin_fpga_config_n, 0);
+	} else {
+		dev_warn(dev, "FPGA loaded by u-boot");
 	}
 
 	data->pinctrl = devm_pinctrl_get(dev);
@@ -226,6 +229,10 @@ static BOOL ec702_setup_gpio_access(struct device *dev)
 
 	if (!result)
 		dev_err(dev, "setup gpio access failed\n");
+
+	/* Set SPI pins as SPI */
+	if (set_spi_bus_active(dev, TRUE))
+		dev_err(dev, "failed to set SPI pins active");
 
 	return result;
 }
@@ -344,13 +351,11 @@ static void ec702_bsp_fvd_power_up(struct device *dev, BOOL restart)
 	int ret;
 	struct fvdkdata *data = dev_get_drvdata(dev);
 
-	dev_info(dev, "fvd power up\n");
-
-	ret = gpio_direction_output(data->fpga_pins.pin_fpga_ce_n, 1);
-	if (ret != 0) {
-		dev_err(dev, "failed to set FPGA_CE_n as output high, ret=%d\n", ret);
-		goto out_err;
+	if (!restart) {
+		dev_info(dev, "ignoring fvd power up without FPGA restart\n");
+		return;
 	}
+	dev_info(dev, "fvd power up\n");
 
 	ret = ec702_set_fpga_power(dev, TRUE);
 	if (ret != 0)
